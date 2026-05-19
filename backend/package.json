@@ -1,0 +1,51 @@
+{
+  "name": "rindaseat-backend",
+  "version": "1.0.0",
+  "description": "Backend API foundation for the RindaSeat smart transport reservation platform.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "db:setup": "node scripts/setup-db.js",
+    "db:check": "node src/utils/postgresHealthCheck.js",
+    "health": "node src/utils/productionReadiness.js",
+    "lint:check": "node scripts/lint-check.js",
+    "env:report": "node src/utils/envReport.js",
+    "verify": "node src/utils/productionReadiness.js"
+  },
+  "keywords": [
+    "rindaseat",
+    "transport",
+    "reservations",
+    "rwanda",
+    "express",
+    "postgresql"
+  ],
+  "author": "RindaSeat",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "firebase-admin": "^13.10.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "nodemailer": "^8.0.7",
+    "pg": "^8.13.1",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "overrides": {
+    "ws": "^8.20.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
