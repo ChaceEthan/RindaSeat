@@ -8,7 +8,7 @@ const { initializeSocket } = require('./config/socket');
 const { initializeFirebase } = require('./config/firebase');
 const { getDatabaseHost } = require('./utils/checkDatabase');
 const { checkPostgresHealth } = require('./utils/postgresHealthCheck');
-const { runMigrations } = require('./utils/migrations');
+const { startDatabaseBootstrap } = require('./utils/databaseBootstrap');
 
 const divider = '-'.repeat(63);
 const PORT = process.env.PORT || 5000;
@@ -21,6 +21,25 @@ const validateRuntimeEnvironment = () => {
   }
 };
 
+const initializeRuntimeServices = async () => {
+  initializeFirebase();
+
+  const migrationResult = await startDatabaseBootstrap();
+  if (!migrationResult.success) {
+    console.warn(`[SERVER] Database migration warning: ${migrationResult.message}`);
+  }
+
+  const postgresHealth = await checkPostgresHealth();
+  if (!postgresHealth.ok) {
+    console.warn('[SERVER] PostgreSQL health is degraded. Server will keep running.');
+  }
+
+  return {
+    migrationResult,
+    postgresHealth
+  };
+};
+
 const startServer = async () => {
   validateRuntimeEnvironment();
 
@@ -31,21 +50,24 @@ const startServer = async () => {
   console.log(`[ENV] App: ${process.env.APP_NAME || 'RindaSeat'} v${process.env.APP_VERSION || '1.0.0'}`);
   console.log(`[DB] Host: ${getDatabaseHost()}`);
 
-  initializeFirebase();
-
-  const migrationResult = await runMigrations();
-  if (!migrationResult.success) {
-    console.warn(`[SERVER] Database migration warning: ${migrationResult.message}`);
-  }
-
-  const postgresHealth = await checkPostgresHealth();
-  if (!postgresHealth.ok) {
-    console.warn('[SERVER] PostgreSQL health is degraded. Server will keep running.');
-  }
-
   try {
     const server = http.createServer(app);
     const io = initializeSocket(server);
+    const runtimeServices = initializeRuntimeServices().catch((error) => {
+      console.warn(`[SERVER] Runtime service initialization warning: ${error.message}`);
+
+      return {
+        migrationResult: {
+          success: false,
+          message: error.message
+        },
+        postgresHealth: {
+          ok: false,
+          degraded: true,
+          error: error.message
+        }
+      };
+    });
 
     console.log('[SOCKET] Socket.IO initialized');
 
@@ -68,8 +90,7 @@ const startServer = async () => {
     return {
       server,
       io,
-      postgresHealth,
-      migrationResult
+      runtimeServices
     };
   } catch (error) {
     console.error(`[SERVER] Failed to start RindaSeat backend: ${error.message}`);

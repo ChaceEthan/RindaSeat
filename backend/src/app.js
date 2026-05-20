@@ -23,6 +23,7 @@ const ticketRoutes = require('./routes/ticketRoutes');
 const userRoutes = require('./routes/userRoutes');
 const { generateHealthReport } = require('./utils/healthCheck');
 const { isFirebaseConfigured } = require('./config/firebase');
+const { getDatabaseBootstrapStatus, waitForDatabaseBootstrap } = require('./utils/databaseBootstrap');
 
 const app = express();
 const stripeWebhookPath = '/api/payments/webhooks/stripe';
@@ -148,10 +149,12 @@ const legacyHealthHandler = (req, res) => {
 
 const apiHealthHandler = (req, res) => {
   const report = generateHealthReport();
+  const databaseBootstrap = getDatabaseBootstrapStatus();
 
   res.json({
     server: 'running',
     database: report.database.status,
+    databaseBootstrap: databaseBootstrap.state,
     environment: process.env.NODE_ENV || 'development',
     firebase: isFirebaseConfigured() ? 'connected' : 'degraded',
     timestamp: new Date().toISOString()
@@ -162,6 +165,23 @@ app.get('/health', legacyHealthHandler);
 app.get('/api/health', apiHealthHandler);
 
 app.use('/api', apiLimiter);
+app.use('/api', async (req, res, next) => {
+  if (req.path === '/health') {
+    return next();
+  }
+
+  const bootstrap = await waitForDatabaseBootstrap();
+
+  if (!bootstrap.success) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database is initializing or unavailable. Please retry shortly.',
+      database: bootstrap.timedOut ? 'initializing' : 'degraded'
+    });
+  }
+
+  return next();
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/trips', tripRoutes);
