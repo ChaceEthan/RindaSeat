@@ -4,6 +4,9 @@ const { query } = require('../config/db');
 const generateToken = require('../utils/generateToken');
 
 const getSaltRounds = () => Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
+const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+const normalizeText = (value) => String(value || '').trim();
+const isUniqueViolation = (error) => error && error.code === '23505';
 
 const health = (req, res) => {
   res.json({
@@ -14,18 +17,37 @@ const health = (req, res) => {
 
 const normalizeUser = (user) => ({
   id: user.id,
-  fullName: user.full_name,
-  name: user.full_name,
+  fullName: user.full_name || user.name,
+  name: user.name || user.full_name,
   phone: user.phone,
   email: user.email,
+  avatar: user.avatar,
+  authProvider: user.auth_provider,
   role: user.role,
+  isVerified: user.is_verified,
+  lastLogin: user.last_login,
   createdAt: user.created_at
+});
+
+const buildAuthResponse = (user, token) => ({
+  success: true,
+  data: {
+    user,
+    token,
+    refreshToken: token
+  },
+  user,
+  token,
+  refreshToken: token
 });
 
 const register = async (req, res, next) => {
   try {
-    const { fullName, phone, email, password } = req.body;
-    const role = 'passenger';
+    const fullName = normalizeText(req.body.fullName || req.body.name);
+    const phone = normalizeText(req.body.phone);
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || '');
+    const role = 'user';
 
     if (!fullName || !phone || !email || !password) {
       return res.status(400).json({
@@ -35,7 +57,7 @@ const register = async (req, res, next) => {
     }
 
     const existingUser = await query(
-      'SELECT id FROM users WHERE email = $1 OR phone = $2',
+      'SELECT id FROM users WHERE LOWER(email) = LOWER($1) OR phone = $2',
       [email, phone]
     );
 
@@ -48,31 +70,42 @@ const register = async (req, res, next) => {
 
     const passwordHash = await bcrypt.hash(password, getSaltRounds());
     const result = await query(
-      `INSERT INTO users (full_name, phone, email, password_hash, role)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, full_name, phone, email, role, created_at`,
+      `INSERT INTO users (
+        name,
+        full_name,
+        phone,
+        email,
+        password,
+        password_hash,
+        auth_provider,
+        role,
+        is_verified
+       )
+       VALUES ($1, $1, $2, $3, $4, $4, 'email', $5, false)
+       RETURNING id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at`,
       [fullName, phone, email, passwordHash, role]
     );
 
     const user = normalizeUser(result.rows[0]);
     const token = generateToken(user);
 
-    return res.status(201).json({
-      success: true,
-      data: {
-        user,
-        token,
-        refreshToken: token
-      }
-    });
+    return res.status(201).json(buildAuthResponse(user, token));
   } catch (error) {
+    if (isUniqueViolation(error)) {
+      return res.status(409).json({
+        success: false,
+        message: 'A user with that email or phone already exists'
+      });
+    }
+
     return next(error);
   }
 };
 
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || '');
 
     if (!email || !password) {
       return res.status(400).json({
@@ -82,7 +115,9 @@ const login = async (req, res, next) => {
     }
 
     const result = await query(
-      'SELECT id, full_name, phone, email, password_hash, role, created_at FROM users WHERE email = $1',
+      `SELECT id, name, full_name, phone, email, avatar, password, password_hash, auth_provider, role, is_verified, last_login, created_at
+       FROM users
+       WHERE LOWER(email) = LOWER($1)`,
       [email]
     );
 
@@ -94,7 +129,16 @@ const login = async (req, res, next) => {
     }
 
     const user = result.rows[0];
-    const passwordMatches = await bcrypt.compare(password, user.password_hash);
+    const storedPasswordHash = user.password_hash || user.password;
+
+    if (!storedPasswordHash) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, storedPasswordHash);
 
     if (!passwordMatches) {
       return res.status(401).json({
@@ -103,18 +147,20 @@ const login = async (req, res, next) => {
       });
     }
 
+    const updatedUser = await query(
+      `UPDATE users
+       SET last_login = NOW(), updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at`,
+      [user.id]
+    );
+
+    delete user.password;
     delete user.password_hash;
-    const normalizedUser = normalizeUser(user);
+    const normalizedUser = normalizeUser(updatedUser.rows[0] || user);
     const token = generateToken(normalizedUser);
 
-    return res.json({
-      success: true,
-      data: {
-        user: normalizedUser,
-        token,
-        refreshToken: token
-      }
-    });
+    return res.json(buildAuthResponse(normalizedUser, token));
   } catch (error) {
     return next(error);
   }
@@ -123,7 +169,9 @@ const login = async (req, res, next) => {
 const profile = async (req, res, next) => {
   try {
     const result = await query(
-      'SELECT id, full_name, phone, email, role, created_at FROM users WHERE id = $1',
+      `SELECT id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at
+       FROM users
+       WHERE id = $1`,
       [req.user.id]
     );
 
@@ -151,7 +199,15 @@ const refresh = (req, res) => {
       token,
       refreshToken: token
     },
-    token
+    token,
+    refreshToken: token
+  });
+};
+
+const logout = (req, res) => {
+  return res.json({
+    success: true,
+    message: 'Logged out'
   });
 };
 
@@ -188,9 +244,10 @@ const googleAuth = async (req, res, next) => {
       });
     }
 
-    const { uid, email, name, picture } = decodedToken;
+    const { email, name, picture, email_verified: emailVerified } = decodedToken;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!email) {
+    if (!normalizedEmail) {
       return res.status(400).json({
         success: false,
         message: 'Email not available from Google account'
@@ -199,36 +256,75 @@ const googleAuth = async (req, res, next) => {
 
     // Find or create user
     let result = await query(
-      'SELECT id, full_name, phone, email, role, created_at FROM users WHERE email = $1',
-      [email]
+      `SELECT id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at
+       FROM users
+       WHERE LOWER(email) = LOWER($1)`,
+      [normalizedEmail]
     );
 
     let user;
     if (result.rowCount === 0) {
       // Create new user from Google
       const newUserResult = await query(
-        `INSERT INTO users (full_name, email, role, created_at)
-         VALUES ($1, $2, $3, NOW())
-         RETURNING id, full_name, phone, email, role, created_at`,
-        [name || email.split('@')[0], email, 'passenger']
+        `INSERT INTO users (
+          name,
+          full_name,
+          email,
+          avatar,
+          auth_provider,
+          role,
+          is_verified,
+          last_login,
+          created_at
+         )
+         VALUES ($1, $1, $2, $3, 'google', 'user', $4, NOW(), NOW())
+         RETURNING id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at`,
+        [
+          normalizeText(name) || normalizedEmail.split('@')[0],
+          normalizedEmail,
+          picture || null,
+          Boolean(emailVerified)
+        ]
       );
       user = newUserResult.rows[0];
     } else {
-      user = result.rows[0];
+      const existingUser = result.rows[0];
+      const updatedUserResult = await query(
+        `UPDATE users
+         SET name = COALESCE(NULLIF(name, ''), $2),
+             full_name = COALESCE(NULLIF(full_name, ''), $2),
+             avatar = COALESCE($3, avatar),
+             auth_provider = CASE
+               WHEN auth_provider = 'email' THEN 'google'
+               ELSE auth_provider
+             END,
+             is_verified = is_verified OR $4,
+             last_login = NOW(),
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at`,
+        [
+          existingUser.id,
+          normalizeText(name) || normalizedEmail.split('@')[0],
+          picture || null,
+          Boolean(emailVerified)
+        ]
+      );
+      user = updatedUserResult.rows[0] || existingUser;
     }
 
     const normalizedUser = normalizeUser(user);
     const token = generateToken(normalizedUser);
 
-    return res.json({
-      success: true,
-      data: {
-        user: normalizedUser,
-        token,
-        refreshToken: token
-      }
-    });
+    return res.json(buildAuthResponse(normalizedUser, token));
   } catch (error) {
+    if (isUniqueViolation(error)) {
+      return res.status(409).json({
+        success: false,
+        message: 'A user with that email already exists'
+      });
+    }
+
     return next(error);
   }
 };
@@ -239,5 +335,6 @@ module.exports = {
   login,
   googleAuth,
   profile,
-  refresh
+  refresh,
+  logout
 };

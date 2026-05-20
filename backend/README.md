@@ -49,7 +49,7 @@ Create `backend/.env` from `.env.example` and fill only real values for your loc
 Minimum required values:
 
 ```env
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/rindaseat
+DATABASE_URL=YOUR_RENDER_DATABASE_URL
 JWT_SECRET=replace-with-a-strong-secret
 PORT=5000
 NODE_ENV=development
@@ -68,10 +68,10 @@ npm run db:check
 
 The setup script:
 
-- creates the `rindaseat` database if it is missing
-- runs `database/schema.sql`
-- runs `database/seed.sql`
-- detects common PostgreSQL Windows install paths
+- uses only `DATABASE_URL`
+- runs the backend safe schema bootstrap
+- auto-creates missing tables with `CREATE TABLE IF NOT EXISTS`
+- seeds the default admin and Rwanda demo transport data only when the target tables are empty
 
 ## Development
 
@@ -82,7 +82,7 @@ npm run dev
 The API defaults to:
 
 ```text
-http://localhost:5000
+https://your-render-service.onrender.com
 ```
 
 Useful checks:
@@ -142,7 +142,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 
 ## Payments
 
-Stripe and MTN MoMo keys are optional for local startup. If a payment provider is not configured, payment endpoints return a safe provider-not-configured response instead of crashing.
+Stripe, MTN MoMo, and Airtel Money keys are optional for local startup. With `ENABLE_DEMO_PAYMENTS=true`, payment endpoints use a safe simulated provider when live credentials are absent.
 
 Stripe webhooks use a raw JSON parser only on the webhook route:
 

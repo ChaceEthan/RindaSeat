@@ -34,7 +34,7 @@ const sendNotification = async ({ token, title, body, data = {} }) => {
       data,
       webpush: {
         fcmOptions: {
-          link: process.env.CLIENT_URL || 'http://localhost:3000'
+          link: process.env.CLIENT_URL || process.env.FRONTEND_URL || 'https://rindaseat.vercel.app'
         }
       },
       apns: {
@@ -120,4 +120,3 @@ module.exports = {
   sendPaymentSuccessNotification,
   sendNotification
 };
-

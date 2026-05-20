@@ -49,7 +49,8 @@ const run = () => {
 
   if (failed > 0) {
     console.error(`[LINT] ${failed}/${files.length} JavaScript files failed syntax checks`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   console.log(`[LINT] ${files.length} JavaScript files passed syntax checks`);

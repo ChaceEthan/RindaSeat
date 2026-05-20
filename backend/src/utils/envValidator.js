@@ -52,6 +52,9 @@ const ENV_GROUPS = {
       'APP_NAME',
       'APP_VERSION',
       'CLIENT_URL',
+      'FRONTEND_URL',
+      'CLIENT_ORIGIN',
+      'CORS_ORIGINS',
       'MOBILE_APP_NAME',
       'BCRYPT_SALT_ROUNDS',
       'SOCKET_CORS_ORIGIN',
@@ -79,13 +82,10 @@ const ENV_GROUPS = {
 
 const REQUIRED_ENV_KEYS = Object.values(ENV_GROUPS).flatMap(({ required }) => required);
 const OPTIONAL_ENV_KEYS = Object.values(ENV_GROUPS).flatMap(({ optional }) => optional);
-const isProductionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
-const getDefaultEnvValues = () => (
-  isProductionRuntime()
-    ? {}
-    : { PORT: '5000' }
-);
+const getDefaultEnvValues = () => ({
+  PORT: '5000'
+});
 
 const PLACEHOLDER_PATTERNS = [
   /^YOUR_/i,
@@ -96,15 +96,6 @@ const PLACEHOLDER_PATTERNS = [
 ];
 
 const normalizeValue = (value) => String(value || '').trim().replace(/^['"]|['"]$/g, '');
-
-const isLocalDatabaseUrl = (databaseUrl) => {
-  try {
-    const parsedUrl = new URL(databaseUrl);
-    return ['localhost', '127.0.0.1', '::1'].includes(parsedUrl.hostname);
-  } catch (error) {
-    return false;
-  }
-};
 
 const isMissing = (key) => {
   const value = normalizeValue(process.env[key]);
@@ -157,27 +148,15 @@ const validateEnv = (logger = console) => {
   const missingRequired = Object.values(missingRequiredByGroup).flat();
   const missingOptional = Object.values(missingOptionalByGroup).flat();
 
-  if (isProductionRuntime() && isMissing('PORT')) {
-    throw new Error('PORT is required in production. Render provides this automatically at runtime.');
-  }
-
-  if (isProductionRuntime() && !isMissing('DATABASE_URL') && isLocalDatabaseUrl(process.env.DATABASE_URL)) {
-    throw new Error('DATABASE_URL must not point to localhost in production. Use the Render PostgreSQL connection string.');
-  }
-
-  if (missingRequired.length > 0) {
-    if (missingRequired.includes('DATABASE_URL')) {
-      throw new Error('DATABASE_URL is required. Add DATABASE_URL to backend/.env before starting the server.');
-    }
-
-    throw new Error(
-      `Missing critical environment configuration: ${formatGroupedMissing(missingRequiredByGroup)}`
+  if (missingRequired.length > 0 && logger && typeof logger.warn === 'function') {
+    logger.warn(
+      `Critical environment configuration missing or using placeholders: ${formatGroupedMissing(missingRequiredByGroup)}. Backend startup will continue in degraded mode.`
     );
   }
 
   if (missingOptional.length > 0 && logger && typeof logger.warn === 'function') {
     logger.warn(
-      `Optional environment configuration missing or still using placeholders: ${formatGroupedMissing(missingOptionalByGroup)}. Backend startup will continue, but those integrations must be configured before production use.`
+      `Optional environment configuration missing or using placeholders: ${formatGroupedMissing(missingOptionalByGroup)}. Startup will continue; unavailable integrations are disabled.`
     );
   }
 

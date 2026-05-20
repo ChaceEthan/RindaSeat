@@ -1,35 +1,45 @@
 /* global __RINDASEAT_API_URL__, __RINDASEAT_SOCKET_URL__, __RINDASEAT_IS_PRODUCTION__ */
 
 const trimTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
+const PRODUCTION_API_URL = 'https://rindaseat.onrender.com/api';
+const PRODUCTION_SOCKET_URL = 'https://rindaseat.onrender.com';
+const isLocalUrl = (value = '') => /(^|\/\/)(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(value);
+const sanitizeProductionUrl = (value, fallback) => {
+  if (import.meta.env.PROD && isLocalUrl(value)) {
+    return fallback;
+  }
+
+  return value;
+};
 
 // Use global variables injected by Vite, with fallbacks to import.meta.env
 const getApiUrl = () => {
   // First try Vite-injected globals
   if (typeof __RINDASEAT_API_URL__ !== 'undefined') {
-    return __RINDASEAT_API_URL__;
+    return sanitizeProductionUrl(__RINDASEAT_API_URL__, PRODUCTION_API_URL);
   }
   // Fallback to import.meta.env
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
-  }
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+    return sanitizeProductionUrl(import.meta.env.VITE_API_URL, PRODUCTION_API_URL);
+  }
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return sanitizeProductionUrl(import.meta.env.VITE_API_BASE_URL, PRODUCTION_API_URL);
   }
   // Development fallback
-  return import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://rindaseat.onrender.com/api';
+  return import.meta.env.DEV ? 'http://localhost:5000/api' : PRODUCTION_API_URL;
 };
 
 const getSocketUrl = () => {
   // First try Vite-injected globals
   if (typeof __RINDASEAT_SOCKET_URL__ !== 'undefined') {
-    return __RINDASEAT_SOCKET_URL__;
+    return sanitizeProductionUrl(__RINDASEAT_SOCKET_URL__, PRODUCTION_SOCKET_URL);
   }
   // Fallback to import.meta.env
   if (import.meta.env.VITE_SOCKET_URL) {
-    return import.meta.env.VITE_SOCKET_URL;
+    return sanitizeProductionUrl(import.meta.env.VITE_SOCKET_URL, PRODUCTION_SOCKET_URL);
   }
   // Development fallback
-  return import.meta.env.DEV ? 'http://localhost:5000' : 'https://rindaseat.onrender.com';
+  return import.meta.env.DEV ? 'http://localhost:5000' : PRODUCTION_SOCKET_URL;
 };
 
 const getIsProduction = () => {

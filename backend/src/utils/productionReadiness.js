@@ -209,7 +209,22 @@ const checkSqlFiles = (results) => {
   const seedPath = path.join(rootDir, 'database', 'seed.sql');
   const schema = fs.existsSync(schemaPath) ? fs.readFileSync(schemaPath, 'utf8') : '';
   const seed = fs.existsSync(seedPath) ? fs.readFileSync(seedPath, 'utf8') : '';
-  const requiredTables = ['users', 'companies', 'stations', 'buses', 'routes', 'trips', 'bookings', 'payments'];
+  const requiredTables = [
+    'users',
+    'companies',
+    'stations',
+    'buses',
+    'routes',
+    'trips',
+    'bookings',
+    'payments',
+    'tickets',
+    'admins',
+    'notifications',
+    'reviews',
+    'saved_routes',
+    'trip_updates'
+  ];
   const missingTables = requiredTables.filter((table) => !schema.includes(`CREATE TABLE IF NOT EXISTS ${table}`));
 
   if (!schema || missingTables.length > 0) {
@@ -332,11 +347,11 @@ const runProductionReadiness = async () => {
 if (require.main === module) {
   runProductionReadiness()
     .then((report) => {
-      process.exit(report.ready ? 0 : 1);
+      process.exitCode = report.ready ? 0 : 1;
     })
     .catch((error) => {
       console.error(color(`[FAIL] Production readiness crashed: ${error.message}`, 'red'));
-      process.exit(1);
+      process.exitCode = 1;
     });
 }
 

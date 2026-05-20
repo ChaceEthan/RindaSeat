@@ -11,7 +11,13 @@ const REQUIRED_TABLES = [
   'routes',
   'trips',
   'bookings',
-  'payments'
+  'payments',
+  'tickets',
+  'admins',
+  'notifications',
+  'reviews',
+  'saved_routes',
+  'trip_updates'
 ];
 
 const isProductionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
@@ -148,12 +154,12 @@ if (require.main === module) {
   checkDatabase()
     .then(async (status) => {
       await pool.end();
-      process.exit(status.connected ? 0 : 1);
+      process.exitCode = status.connected ? 0 : 1;
     })
     .catch(async (error) => {
       console.error(`[DB] Database verification failed: ${formatDatabaseError(error)}`);
       await pool.end();
-      process.exit(1);
+      process.exitCode = 1;
     });
 }
 

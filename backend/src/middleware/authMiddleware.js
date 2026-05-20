@@ -1,5 +1,6 @@
 // @ts-nocheck
 const jwt = require('jsonwebtoken');
+const { getJwtSecret } = require('../utils/generateToken');
 
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -21,7 +22,7 @@ const authenticate = (req, res, next) => {
   }
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = jwt.verify(token, getJwtSecret());
     return next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
@@ -64,7 +65,7 @@ const isAdmin = (req, res, next) => {
     });
   }
 
-  if (req.user.role !== 'admin') {
+  if (!['super_admin', 'admin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'

@@ -190,7 +190,7 @@ const getReportJson = () => JSON.stringify(generateEnvironmentReport(), null, 2)
 if (require.main === module) {
   const report = generateEnvironmentReport();
   printReport(report);
-  process.exit(report.readiness && report.readiness.isProductionReady ? 0 : 1);
+  process.exitCode = report.readiness && report.readiness.isProductionReady ? 0 : 1;
 }
 
 module.exports = {

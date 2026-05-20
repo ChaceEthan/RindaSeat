@@ -48,7 +48,7 @@ export const GoogleAuthButton = ({ onSuccess, size = 'md' }) => {
       }
     } catch (error) {
       console.error('Google auth error:', error);
-      toast.error(error.message || 'Sign in failed. Please try again.');
+      toast.error(error.response?.data?.message || error.message || 'Sign in failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

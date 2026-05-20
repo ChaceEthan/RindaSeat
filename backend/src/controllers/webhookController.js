@@ -88,7 +88,9 @@ const updatePaymentStatus = async (transactionId, status) => {
   try {
     const result = await query(
       `UPDATE payments
-       SET status = $1
+       SET status = $1,
+           payment_status = $1,
+           updated_at = NOW()
        WHERE transaction_id = $2
        RETURNING id, booking_id, status`,
       [status, transactionId]
@@ -110,7 +112,9 @@ const updateBookingStatus = async (bookingId, bookingStatus, paymentStatus) => {
   try {
     const result = await query(
       `UPDATE bookings
-       SET booking_status = $1, payment_status = $2
+       SET booking_status = $1,
+           payment_status = $2,
+           updated_at = NOW()
        WHERE id = $3
        RETURNING id, user_id, booking_status, payment_status`,
       [bookingStatus, paymentStatus, bookingId]

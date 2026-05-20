@@ -20,13 +20,24 @@ const isMomoConfigured = () => (
   && hasValue(process.env.MTN_MOMO_SUBSCRIPTION_KEY)
 );
 
+const isAirtelConfigured = () => (
+  hasValue(process.env.AIRTEL_CLIENT_ID)
+  && hasValue(process.env.AIRTEL_CLIENT_SECRET)
+);
+
+const demoPaymentsEnabled = () => process.env.ENABLE_DEMO_PAYMENTS !== 'false';
+
 const isPaymentProviderConfigured = (method) => {
-  if (method === 'card') {
+  if (method === 'stripe' || method === 'card') {
     return isStripeConfigured();
   }
 
-  if (method === 'mobile_money') {
+  if (method === 'mobile_money' || method === 'mtn_momo') {
     return isMomoConfigured();
+  }
+
+  if (method === 'airtel_money') {
+    return isAirtelConfigured();
   }
 
   return true;
@@ -38,7 +49,9 @@ const validateUUID = (uuid) => {
 };
 
 const initializePayment = async ({ bookingId, amount, method }) => {
-  if (!isPaymentProviderConfigured(method)) {
+  const providerConfigured = isPaymentProviderConfigured(method);
+
+  if (!providerConfigured && !demoPaymentsEnabled()) {
     return paymentProviderNotConfigured();
   }
 
@@ -62,7 +75,8 @@ const initializePayment = async ({ bookingId, amount, method }) => {
     amount,
     method,
     transactionId: uuidv4(),
-    status: 'pending'
+    status: providerConfigured ? 'pending' : 'demo_confirmed',
+    provider: providerConfigured ? method : 'rindaseat_demo'
   };
 };
 
@@ -195,6 +209,6 @@ module.exports = {
   isPaymentProviderConfigured,
   verifyPayment,
   isMomoConfigured,
-  isStripeConfigured
+  isStripeConfigured,
+  isAirtelConfigured
 };
-

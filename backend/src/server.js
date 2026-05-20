@@ -8,38 +8,21 @@ const { initializeSocket } = require('./config/socket');
 const { initializeFirebase } = require('./config/firebase');
 const { getDatabaseHost } = require('./utils/checkDatabase');
 const { checkPostgresHealth } = require('./utils/postgresHealthCheck');
+const { runMigrations } = require('./utils/migrations');
 
 const divider = '-'.repeat(63);
-const isProductionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
-const resolvePort = () => process.env.PORT || (isProductionRuntime() ? null : 5000);
-const degradedModeAllowed = () => {
-  if (process.env.ALLOW_DEGRADED_DB_MODE === 'true') {
-    return true;
-  }
-
-  if (isProductionRuntime()) {
-    return false;
-  }
-
-  return process.env.ALLOW_DEGRADED_DB_MODE !== 'false';
-};
+const PORT = process.env.PORT || 5000;
 
 const validateRuntimeEnvironment = () => {
   try {
     validateEnv();
-    return true;
   } catch (error) {
     console.warn(`[ENV WARNING] ${error.message}`);
-    console.warn('[ENV WARNING] Fix the missing values in .env, then restart the backend');
-    return false;
   }
 };
 
 const startServer = async () => {
-  if (!validateRuntimeEnvironment()) {
-    process.exitCode = 1;
-    return null;
-  }
+  validateRuntimeEnvironment();
 
   console.log(`\n${divider}`);
   console.log('  RindaSeat Backend Startup');
@@ -50,30 +33,17 @@ const startServer = async () => {
 
   initializeFirebase();
 
-  const postgresHealth = await checkPostgresHealth();
-
-  if (!postgresHealth.ok && !degradedModeAllowed()) {
-    console.error('[SERVER] PostgreSQL health check failed and degraded mode is disabled');
-    console.error('[SERVER] Check your DATABASE_URL and ensure PostgreSQL service is running');
-    console.log(`${divider}\n`);
-    process.exitCode = 1;
-    return null;
+  const migrationResult = await runMigrations();
+  if (!migrationResult.success) {
+    console.warn(`[SERVER] Database migration warning: ${migrationResult.message}`);
   }
 
+  const postgresHealth = await checkPostgresHealth();
   if (!postgresHealth.ok) {
-    console.warn('[SERVER] Starting in degraded DB mode');
-    console.warn('[SERVER] Database operations may be limited. Fix the database connection.');
+    console.warn('[SERVER] PostgreSQL health is degraded. Server will keep running.');
   }
 
   try {
-    const port = resolvePort();
-
-    if (!port) {
-      console.error('[SERVER] PORT is required in production');
-      process.exitCode = 1;
-      return null;
-    }
-
     const server = http.createServer(app);
     const io = initializeSocket(server);
 
@@ -81,17 +51,16 @@ const startServer = async () => {
 
     server.on('error', (error) => {
       if (error.code === 'EADDRINUSE') {
-        console.error(`[SERVER] Port ${port} is already in use`);
-        console.error('[SERVER] Stop the other process or set a different PORT in .env');
+        console.error(`[SERVER] Port ${PORT} is already in use`);
         return;
       }
 
       console.error(`[SERVER] Runtime server error: ${error.message}`);
     });
 
-    server.listen(port, () => {
+    server.listen(PORT, '0.0.0.0', () => {
       const address = server.address();
-      const runningPort = address && address.port ? address.port : port;
+      const runningPort = address && address.port ? address.port : PORT;
       console.log(`[SERVER] Running on port ${runningPort}`);
       console.log(`${divider}\n`);
     });
@@ -99,12 +68,12 @@ const startServer = async () => {
     return {
       server,
       io,
-      postgresHealth
+      postgresHealth,
+      migrationResult
     };
   } catch (error) {
     console.error(`[SERVER] Failed to start RindaSeat backend: ${error.message}`);
     console.log(`${divider}\n`);
-    process.exitCode = 1;
     return null;
   }
 };

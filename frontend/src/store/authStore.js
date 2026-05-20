@@ -4,14 +4,22 @@ import { persist } from 'zustand/middleware';
 
 const useAuthStore = create(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       token: null,
       isAuthenticated: false,
 
       setUser: (user) => set({ user }),
 
-      setToken: (token) => set({ token }),
+      setToken: (token) => {
+        if (token) {
+          localStorage.setItem('token', token);
+        } else {
+          localStorage.removeItem('token');
+        }
+
+        set({ token });
+      },
 
       login: (user, token, refreshToken) => {
         localStorage.setItem('token', token);
@@ -27,6 +35,7 @@ const useAuthStore = create(
       logout: () => {
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
         set({
           user: null,
           token: null,

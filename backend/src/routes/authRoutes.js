@@ -9,6 +9,7 @@ router.post('/register', authController.register);
 router.post('/signup', authController.register);
 router.post('/login', authController.login);
 router.post('/google', authController.googleAuth);
+router.post('/logout', authController.logout);
 router.post('/refresh', authenticate, authController.refresh);
 router.get('/profile', authenticate, authController.profile);
 

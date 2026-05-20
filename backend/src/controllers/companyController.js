@@ -13,8 +13,14 @@ const listCompanies = async (req, res, next) => {
     const result = await query(
       `SELECT
         companies.id,
+        companies.company_name,
         companies.name,
+        companies.logo,
         companies.logo_url,
+        companies.email,
+        companies.phone,
+        companies.address,
+        companies.verified,
         companies.rating,
         companies.review_count,
         companies.amenities,
@@ -45,8 +51,14 @@ const getCompanyById = async (req, res, next) => {
     const result = await query(
       `SELECT
         id,
+        company_name,
         name,
+        logo,
         logo_url,
+        email,
+        phone,
+        address,
+        verified,
         rating,
         review_count,
         amenities,

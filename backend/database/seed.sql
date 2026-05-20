@@ -1,39 +1,10 @@
-TRUNCATE TABLE booking_seats, payments, bookings, trips, buses, routes RESTART IDENTITY CASCADE;
+-- Safe, idempotent seed data for local/demo environments.
+-- This file never truncates or deletes production data.
 
-DELETE FROM companies
-WHERE name IN (
-  'Volcano Express',
-  'Ritco',
-  'RITCO',
-  'Kigali Coach',
-  'Royal Express',
-  'Omega Bus',
-  'Virunga Express',
-  'Horizon',
-  'Alpha Express'
-);
-
-DELETE FROM stations
-WHERE name IN (
-  'Nyabugogo',
-  'Nyabugogo Bus Park',
-  'Huye',
-  'Huye Main Station',
-  'Ruhango',
-  'Nyamata',
-  'Kabuga',
-  'Nyanza',
-  'Nyanza Station',
-  'Musanze Bus Station',
-  'Rubavu Taxi Park',
-  'Rusizi Bus Station',
-  'Nyagatare Bus Station',
-  'Muhanga Station'
-);
-
-WITH station_seed(name, district, city, province, latitude, longitude) AS (
+WITH station_seed(station_name, district, city, province, latitude, longitude) AS (
   VALUES
     ('Nyabugogo Bus Park', 'Nyarugenge', 'Kigali', 'Kigali City', -1.939200, 30.044600),
+    ('Kimironko Taxi Park', 'Gasabo', 'Kigali', 'Kigali City', -1.935300, 30.130300),
     ('Huye Main Station', 'Huye', 'Huye', 'Southern Province', -2.596700, 29.739400),
     ('Musanze Bus Station', 'Musanze', 'Musanze', 'Northern Province', -1.499800, 29.634900),
     ('Rubavu Taxi Park', 'Rubavu', 'Rubavu', 'Western Province', -1.681800, 29.313400),
@@ -42,36 +13,64 @@ WITH station_seed(name, district, city, province, latitude, longitude) AS (
     ('Muhanga Station', 'Muhanga', 'Muhanga', 'Southern Province', -2.084500, 29.756600),
     ('Nyanza Station', 'Nyanza', 'Nyanza', 'Southern Province', -2.351900, 29.750900)
 )
-INSERT INTO stations (id, name, district, city, province, latitude, longitude)
-SELECT uuid_generate_v5(uuid_ns_url(), 'rindaseat:station:' || city), name, district, city, province, latitude, longitude
+INSERT INTO stations (id, station_name, name, district, city, province, latitude, longitude)
+SELECT
+  uuid_generate_v5(uuid_ns_url(), 'rindaseat:station:' || city),
+  station_name,
+  station_name,
+  district,
+  city,
+  province,
+  latitude,
+  longitude
 FROM station_seed
-ON CONFLICT (name) DO UPDATE SET
+ON CONFLICT (station_name) DO UPDATE SET
+  name = EXCLUDED.name,
   district = EXCLUDED.district,
   city = EXCLUDED.city,
   province = EXCLUDED.province,
   latitude = EXCLUDED.latitude,
-  longitude = EXCLUDED.longitude;
+  longitude = EXCLUDED.longitude,
+  updated_at = NOW();
 
-WITH company_seed(name, logo_url, rating, review_count, amenities, support_phone, brand_color, description) AS (
+WITH company_seed(company_name, email, phone, address, description, rating, review_count, amenities, brand_color) AS (
   VALUES
-    ('Volcano Express', null, 4.8, 1840, ARRAY['WiFi', 'USB charging', 'Air conditioning', 'Reclining seats'], '+250788305050', '#ef4444', 'Premium intercity service on Rwanda northern and western corridors.'),
-    ('Ritco', null, 4.6, 2260, ARRAY['Reliable schedule', 'Large luggage hold', 'Professional drivers'], '+250788319333', '#2563eb', 'National coach operator connecting Kigali with all provinces.'),
-    ('Kigali Coach', null, 4.5, 950, ARRAY['Express service', 'Mobile ticketing', 'Clean coaches'], '+250788440010', '#7c3aed', 'Fast city-to-city coach service from Nyabugogo.'),
-    ('Royal Express', null, 4.7, 1215, ARRAY['Executive coach', 'Extra legroom', 'Onboard host'], '+250788771177', '#0f766e', 'Executive transport for comfort-focused passengers.'),
-    ('Omega Bus', null, 4.4, 780, ARRAY['Affordable fares', 'Daily departures', 'Parcel desk'], '+250788552255', '#f97316', 'Affordable daily services across Rwanda.'),
-    ('Virunga Express', null, 4.6, 1090, ARRAY['Mountain route experts', 'WiFi', 'USB charging'], '+250788660066', '#16a34a', 'Specialist service for Musanze, Rubavu, and Virunga corridor trips.')
+    ('Volcano Express', 'support@volcano.rw', '+250788305050', 'Nyabugogo Bus Park, Kigali', 'Premium intercity service on Rwanda northern and western corridors.', 4.8, 1840, ARRAY['WiFi', 'USB charging', 'Air conditioning', 'Reclining seats'], '#ef4444'),
+    ('Ritco', 'info@ritco.rw', '+250788319333', 'Remera, Kigali', 'National coach operator connecting Kigali with all provinces.', 4.6, 2260, ARRAY['Reliable schedule', 'Large luggage hold', 'Professional drivers'], '#2563eb'),
+    ('Kigali Coach', 'hello@kigalicoach.rw', '+250788440010', 'Nyabugogo, Kigali', 'Fast city-to-city coach service from Nyabugogo.', 4.5, 950, ARRAY['Express service', 'Mobile ticketing', 'Clean coaches'], '#7c3aed'),
+    ('Royal Express', 'care@royalexpress.rw', '+250788771177', 'Downtown Kigali', 'Executive transport for comfort-focused passengers.', 4.7, 1215, ARRAY['Executive coach', 'Extra legroom', 'Onboard host'], '#0f766e'),
+    ('Omega Bus', 'bookings@omegabus.rw', '+250788552255', 'Muhanga Road, Kigali', 'Affordable daily services across Rwanda.', 4.4, 780, ARRAY['Affordable fares', 'Daily departures', 'Parcel desk'], '#f97316'),
+    ('Virunga Express', 'travel@virungaexpress.rw', '+250788660066', 'Musanze Road, Kigali', 'Specialist service for Musanze, Rubavu, and Virunga corridor trips.', 4.6, 1090, ARRAY['Mountain route experts', 'WiFi', 'USB charging'], '#16a34a')
 )
-INSERT INTO companies (id, name, logo_url, rating, review_count, amenities, support_phone, brand_color, description)
-SELECT uuid_generate_v5(uuid_ns_url(), 'rindaseat:company:' || lower(name)), name, logo_url, rating, review_count, amenities, support_phone, brand_color, description
+INSERT INTO companies (id, company_name, name, email, phone, support_phone, address, description, verified, rating, review_count, amenities, brand_color)
+SELECT
+  uuid_generate_v5(uuid_ns_url(), 'rindaseat:company:' || lower(company_name)),
+  company_name,
+  company_name,
+  email,
+  phone,
+  phone,
+  address,
+  description,
+  true,
+  rating,
+  review_count,
+  amenities,
+  brand_color
 FROM company_seed
-ON CONFLICT (name) DO UPDATE SET
-  logo_url = EXCLUDED.logo_url,
+ON CONFLICT (company_name) DO UPDATE SET
+  name = EXCLUDED.name,
+  email = EXCLUDED.email,
+  phone = EXCLUDED.phone,
+  support_phone = EXCLUDED.support_phone,
+  address = EXCLUDED.address,
+  description = EXCLUDED.description,
+  verified = EXCLUDED.verified,
   rating = EXCLUDED.rating,
   review_count = EXCLUDED.review_count,
   amenities = EXCLUDED.amenities,
-  support_phone = EXCLUDED.support_phone,
   brand_color = EXCLUDED.brand_color,
-  description = EXCLUDED.description;
+  updated_at = NOW();
 
 WITH bus_seed(company_name, plate_number, bus_name, total_seats, rows, columns, bus_type, amenities) AS (
   VALUES
@@ -97,7 +96,7 @@ SELECT
   bus_seed.amenities,
   true
 FROM bus_seed
-JOIN companies ON companies.name = bus_seed.company_name
+JOIN companies ON companies.company_name = bus_seed.company_name
 ON CONFLICT (plate_number) DO UPDATE SET
   company_id = EXCLUDED.company_id,
   bus_name = EXCLUDED.bus_name,
@@ -106,7 +105,8 @@ ON CONFLICT (plate_number) DO UPDATE SET
   columns = EXCLUDED.columns,
   bus_type = EXCLUDED.bus_type,
   amenities = EXCLUDED.amenities,
-  active = true;
+  active = true,
+  updated_at = NOW();
 
 WITH route_seed(origin_city, destination_city, duration_text, distance_km) AS (
   VALUES
@@ -117,54 +117,35 @@ WITH route_seed(origin_city, destination_city, duration_text, distance_km) AS (
     ('Kigali', 'Nyagatare', '2 hours 40 minutes', 156),
     ('Huye', 'Kigali', '3 hours', 135),
     ('Musanze', 'Kigali', '2 hours 15 minutes', 105),
-    ('Rubavu', 'Kigali', '3 hours 30 minutes', 157),
-    ('Kigali', 'Muhanga', '1 hour 20 minutes', 52),
-    ('Muhanga', 'Kigali', '1 hour 20 minutes', 52),
-    ('Huye', 'Nyanza', '45 minutes', 36),
-    ('Nyanza', 'Kigali', '2 hours 15 minutes', 98)
+    ('Rubavu', 'Kigali', '3 hours 30 minutes', 157)
 )
 INSERT INTO routes (origin_station_id, destination_station_id, estimated_duration, distance_km, active)
-SELECT
-  origin.id,
-  destination.id,
-  route_seed.duration_text::INTERVAL,
-  route_seed.distance_km,
-  true
+SELECT origin.id, destination.id, route_seed.duration_text::INTERVAL, route_seed.distance_km, true
 FROM route_seed
 JOIN stations origin ON origin.city = route_seed.origin_city
 JOIN stations destination ON destination.city = route_seed.destination_city
 ON CONFLICT (origin_station_id, destination_station_id) DO UPDATE SET
   estimated_duration = EXCLUDED.estimated_duration,
   distance_km = EXCLUDED.distance_km,
-  active = true;
+  active = true,
+  updated_at = NOW();
 
-WITH trip_seed(origin_city, destination_city, company_name, plate_number, day_offset, departure_clock, price, platform) AS (
+WITH trip_seed(origin_city, destination_city, plate_number, day_offset, departure_clock, price, platform) AS (
   VALUES
-    ('Kigali', 'Huye', 'Volcano Express', 'RAC 201 V', 0, '07:00'::TIME, 4200, 'Bay 4'),
-    ('Kigali', 'Huye', 'Ritco', 'RAD 118 R', 0, '10:30'::TIME, 3800, 'Bay 2'),
-    ('Kigali', 'Huye', 'Royal Express', 'RAF 550 X', 0, '15:00'::TIME, 5200, 'Bay 6'),
-    ('Kigali', 'Musanze', 'Virunga Express', 'RAH 330 G', 0, '08:00'::TIME, 3600, 'Bay 5'),
-    ('Kigali', 'Musanze', 'Kigali Coach', 'RAE 410 K', 0, '13:30'::TIME, 3900, 'Bay 1'),
-    ('Kigali', 'Rubavu', 'Virunga Express', 'RAH 330 G', 0, '09:00'::TIME, 5200, 'Bay 5'),
-    ('Kigali', 'Rubavu', 'Volcano Express', 'RAC 202 V', 0, '14:30'::TIME, 5600, 'Bay 4'),
-    ('Kigali', 'Rusizi', 'Ritco', 'RAD 119 R', 0, '06:30'::TIME, 8500, 'Bay 2'),
-    ('Kigali', 'Nyagatare', 'Omega Bus', 'RAG 707 O', 0, '11:00'::TIME, 4500, 'Bay 8'),
-    ('Huye', 'Kigali', 'Volcano Express', 'RAC 201 V', 0, '08:30'::TIME, 4200, 'Stand 1'),
-    ('Musanze', 'Kigali', 'Virunga Express', 'RAH 330 G', 0, '16:00'::TIME, 3600, 'Stand 2'),
-    ('Rubavu', 'Kigali', 'Volcano Express', 'RAC 202 V', 0, '07:30'::TIME, 5600, 'Stand 3'),
-    ('Kigali', 'Huye', 'Volcano Express', 'RAC 201 V', 1, '07:00'::TIME, 4200, 'Bay 4'),
-    ('Kigali', 'Musanze', 'Virunga Express', 'RAH 330 G', 1, '08:00'::TIME, 3600, 'Bay 5'),
-    ('Kigali', 'Rubavu', 'Volcano Express', 'RAC 202 V', 1, '14:30'::TIME, 5600, 'Bay 4'),
-    ('Kigali', 'Rusizi', 'Ritco', 'RAD 119 R', 1, '06:30'::TIME, 8500, 'Bay 2'),
-    ('Huye', 'Kigali', 'Ritco', 'RAD 118 R', 1, '12:00'::TIME, 3800, 'Stand 1'),
-    ('Rubavu', 'Kigali', 'Virunga Express', 'RAH 330 G', 1, '10:00'::TIME, 5200, 'Stand 3')
+    ('Kigali', 'Huye', 'RAC 201 V', 0, '07:00'::TIME, 4200, 'Bay 4'),
+    ('Kigali', 'Huye', 'RAD 118 R', 0, '10:30'::TIME, 3800, 'Bay 2'),
+    ('Kigali', 'Musanze', 'RAH 330 G', 0, '08:00'::TIME, 3600, 'Bay 5'),
+    ('Kigali', 'Rubavu', 'RAC 202 V', 0, '14:30'::TIME, 5600, 'Bay 4'),
+    ('Huye', 'Kigali', 'RAC 201 V', 1, '08:30'::TIME, 4200, 'Stand 1'),
+    ('Musanze', 'Kigali', 'RAH 330 G', 1, '16:00'::TIME, 3600, 'Stand 2')
 )
-INSERT INTO trips (bus_id, route_id, departure_time, arrival_time, ticket_price, status, platform, notes)
+INSERT INTO trips (bus_id, route_id, departure_time, arrival_time, available_seats, ticket_price, status, platform, notes)
 SELECT
   buses.id,
   routes.id,
   (CURRENT_DATE + trip_seed.day_offset + trip_seed.departure_clock) AT TIME ZONE 'Africa/Kigali',
   ((CURRENT_DATE + trip_seed.day_offset + trip_seed.departure_clock) AT TIME ZONE 'Africa/Kigali') + routes.estimated_duration,
+  buses.total_seats,
   trip_seed.price,
   'scheduled',
   trip_seed.platform,
@@ -176,28 +157,9 @@ JOIN routes ON routes.origin_station_id = origin.id AND routes.destination_stati
 JOIN buses ON buses.plate_number = trip_seed.plate_number
 ON CONFLICT (bus_id, route_id, departure_time) DO UPDATE SET
   arrival_time = EXCLUDED.arrival_time,
+  available_seats = EXCLUDED.available_seats,
   ticket_price = EXCLUDED.ticket_price,
   status = 'scheduled',
   platform = EXCLUDED.platform,
-  notes = EXCLUDED.notes;
-
-WITH sample_booked AS (
-  SELECT trips.id AS trip_id, seat_number
-  FROM trips
-  CROSS JOIN (VALUES ('A1'), ('B2'), ('C3')) AS seats(seat_number)
-  WHERE trips.departure_time >= CURRENT_DATE
-  ORDER BY trips.departure_time ASC
-  LIMIT 9
-)
-INSERT INTO booking_seats (booking_id, trip_id, seat_number, status)
-SELECT
-  uuid_generate_v5(uuid_ns_url(), 'rindaseat:demo-booking:' || sample_booked.trip_id::TEXT || ':' || sample_booked.seat_number),
-  sample_booked.trip_id,
-  sample_booked.seat_number,
-  'confirmed'
-FROM sample_booked
-WHERE EXISTS (
-  SELECT 1 FROM bookings
-  WHERE bookings.id = uuid_generate_v5(uuid_ns_url(), 'rindaseat:demo-booking:' || sample_booked.trip_id::TEXT || ':' || sample_booked.seat_number)
-)
-ON CONFLICT DO NOTHING;
+  notes = EXCLUDED.notes,
+  updated_at = NOW();
