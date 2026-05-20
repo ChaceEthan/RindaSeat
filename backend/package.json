@@ -9,6 +9,7 @@
     "db:setup": "node scripts/setup-db.js",
     "db:check": "node src/utils/postgresHealthCheck.js",
     "health": "node src/utils/productionReadiness.js",
+    "lint": "node scripts/lint-check.js",
     "lint:check": "node scripts/lint-check.js",
     "env:report": "node src/utils/envReport.js",
     "verify": "node src/utils/productionReadiness.js"

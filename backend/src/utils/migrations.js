@@ -99,6 +99,7 @@ const SCHEMA_STATEMENTS = [
     password_hash TEXT,
     phone VARCHAR(30),
     avatar TEXT,
+    provider VARCHAR(40) NOT NULL DEFAULT 'email',
     auth_provider VARCHAR(40) NOT NULL DEFAULT 'email',
     role user_role NOT NULL DEFAULT 'user',
     is_verified BOOLEAN NOT NULL DEFAULT false,
@@ -294,8 +295,10 @@ const COMPATIBILITY_STATEMENTS = [
   'ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(120)',
   'ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT',
   'ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT',
+  'ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(160)',
   'ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(30)',
   'ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT',
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR(40) DEFAULT 'email'",
   "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(40) NOT NULL DEFAULT 'email'",
   "ALTER TABLE users ADD COLUMN IF NOT EXISTS role user_role NOT NULL DEFAULT 'user'",
   'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT false',
@@ -303,14 +306,22 @@ const COMPATIBILITY_STATEMENTS = [
   'ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()',
   'ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()',
   `UPDATE users
+   SET email = 'user-' || SUBSTRING(id::TEXT, 1, 8) || '@rindaseat.local'
+   WHERE email IS NULL OR email = ''`,
+  `UPDATE users
    SET name = COALESCE(NULLIF(name, ''), NULLIF(full_name, ''), split_part(email, '@', 1), 'RindaSeat User'),
        full_name = COALESCE(NULLIF(full_name, ''), NULLIF(name, ''), split_part(email, '@', 1), 'RindaSeat User'),
        password = COALESCE(password, password_hash),
-       password_hash = COALESCE(password_hash, password)`,
+       password_hash = COALESCE(password_hash, password),
+       provider = COALESCE(NULLIF(provider, ''), NULLIF(auth_provider, ''), 'email'),
+       auth_provider = COALESCE(NULLIF(auth_provider, ''), NULLIF(provider, ''), 'email')`,
   "UPDATE users SET role = 'user' WHERE role::TEXT = 'passenger'",
   "UPDATE users SET role = 'super_admin' WHERE role::TEXT = 'admin'",
   "UPDATE users SET role = 'company_admin' WHERE role::TEXT = 'staff'",
   "ALTER TABLE users ALTER COLUMN name SET NOT NULL",
+  'ALTER TABLE users ALTER COLUMN email SET NOT NULL',
+  "ALTER TABLE users ALTER COLUMN provider SET DEFAULT 'email'",
+  "ALTER TABLE users ALTER COLUMN provider SET NOT NULL",
   "ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user'",
   'ALTER TABLE users ALTER COLUMN phone DROP NOT NULL',
   'ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL',
@@ -431,6 +442,7 @@ const COMPATIBILITY_STATEMENTS = [
   'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email)',
   'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_unique ON users(phone) WHERE phone IS NOT NULL',
   'CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)',
+  'CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider)',
   'CREATE INDEX IF NOT EXISTS idx_users_auth_provider ON users(auth_provider)',
   'CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_company_name_unique ON companies(company_name)',
   'CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_name_unique ON companies(name)',
@@ -531,6 +543,7 @@ const seedDefaultAdmin = async (client, logger) => {
       email,
       password,
       password_hash,
+      provider,
       auth_provider,
       role,
       is_verified
@@ -542,6 +555,7 @@ const seedDefaultAdmin = async (client, logger) => {
       $1,
       $2,
       $2,
+      'email',
       'email',
       'super_admin',
       true
@@ -908,6 +922,7 @@ const verifyRequiredTables = async ({ client: existingClient, logger = console }
 
 const runMigrations = async ({ logger = console, seed = true } = {}) => {
   let client;
+  let inTransaction = false;
 
   try {
     logger.log('[MIGRATIONS] Starting database schema bootstrap');
@@ -916,9 +931,12 @@ const runMigrations = async ({ logger = console, seed = true } = {}) => {
     await runStatements(client, PRE_MIGRATION_STATEMENTS);
 
     await client.query('BEGIN');
+    inTransaction = true;
     await runStatements(client, SCHEMA_STATEMENTS);
     await runStatements(client, COMPATIBILITY_STATEMENTS);
     await runStatements(client, UPDATED_AT_TRIGGER_STATEMENTS);
+    await client.query('COMMIT');
+    inTransaction = false;
 
     const verification = await verifyRequiredTables({ client, logger });
 
@@ -932,7 +950,6 @@ const runMigrations = async ({ logger = console, seed = true } = {}) => {
       seedResult = await seedDatabaseIfEmpty({ client, logger });
     }
 
-    await client.query('COMMIT');
     logger.log('[MIGRATIONS] Database schema bootstrap completed');
 
     return {
@@ -942,11 +959,12 @@ const runMigrations = async ({ logger = console, seed = true } = {}) => {
         + COMPATIBILITY_STATEMENTS.length
         + UPDATED_AT_TRIGGER_STATEMENTS.length,
       missingTables: [],
+      verification,
       seed: seedResult,
       message: 'Schema bootstrap completed'
     };
   } catch (error) {
-    if (client) {
+    if (client && inTransaction) {
       await client.query('ROLLBACK').catch(() => {});
     }
 

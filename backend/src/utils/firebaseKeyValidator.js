@@ -28,6 +28,7 @@ const normalizeFirebasePrivateKey = (privateKey = process.env.FIREBASE_PRIVATE_K
 
   return stripWrappingQuotes(privateKey)
     .replace(/\\r\\n/g, '\n')
+    // Render stores multiline private keys as escaped "\\n" sequences.
     .replace(/\\n/g, '\n')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')

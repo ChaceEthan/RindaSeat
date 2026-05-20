@@ -52,6 +52,16 @@ const getFirebaseConfig = (logger = console) => {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 
   if (!projectId || !clientEmail || !valid) {
+    if (logger && typeof logger.warn === 'function') {
+      const missing = [];
+
+      if (!projectId) missing.push('FIREBASE_PROJECT_ID');
+      if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL');
+      if (!valid) missing.push('FIREBASE_PRIVATE_KEY');
+
+      logger.warn(`[FIREBASE WARNING] Missing or invalid Admin SDK config: ${missing.join(', ')}`);
+    }
+
     return null;
   }
 

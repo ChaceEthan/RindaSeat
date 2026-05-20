@@ -22,7 +22,8 @@ const normalizeUser = (user) => ({
   phone: user.phone,
   email: user.email,
   avatar: user.avatar,
-  authProvider: user.auth_provider,
+  authProvider: user.provider || user.auth_provider,
+  provider: user.provider || user.auth_provider,
   role: user.role,
   isVerified: user.is_verified,
   lastLogin: user.last_login,
@@ -77,12 +78,13 @@ const register = async (req, res, next) => {
         email,
         password,
         password_hash,
+        provider,
         auth_provider,
         role,
         is_verified
        )
-       VALUES ($1, $1, $2, $3, $4, $4, 'email', $5, false)
-       RETURNING id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at`,
+       VALUES ($1, $1, $2, $3, $4, $4, 'email', 'email', $5, false)
+       RETURNING id, name, full_name, phone, email, avatar, provider, auth_provider, role, is_verified, last_login, created_at`,
       [fullName, phone, email, passwordHash, role]
     );
 
@@ -115,7 +117,7 @@ const login = async (req, res, next) => {
     }
 
     const result = await query(
-      `SELECT id, name, full_name, phone, email, avatar, password, password_hash, auth_provider, role, is_verified, last_login, created_at
+      `SELECT id, name, full_name, phone, email, avatar, password, password_hash, provider, auth_provider, role, is_verified, last_login, created_at
        FROM users
        WHERE LOWER(email) = LOWER($1)`,
       [email]
@@ -151,7 +153,7 @@ const login = async (req, res, next) => {
       `UPDATE users
        SET last_login = NOW(), updated_at = NOW()
        WHERE id = $1
-       RETURNING id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at`,
+       RETURNING id, name, full_name, phone, email, avatar, provider, auth_provider, role, is_verified, last_login, created_at`,
       [user.id]
     );
 
@@ -169,7 +171,7 @@ const login = async (req, res, next) => {
 const profile = async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at
+      `SELECT id, name, full_name, phone, email, avatar, provider, auth_provider, role, is_verified, last_login, created_at
        FROM users
        WHERE id = $1`,
       [req.user.id]
@@ -256,7 +258,7 @@ const googleAuth = async (req, res, next) => {
 
     // Find or create user
     let result = await query(
-      `SELECT id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at
+      `SELECT id, name, full_name, phone, email, avatar, provider, auth_provider, role, is_verified, last_login, created_at
        FROM users
        WHERE LOWER(email) = LOWER($1)`,
       [normalizedEmail]
@@ -271,14 +273,15 @@ const googleAuth = async (req, res, next) => {
           full_name,
           email,
           avatar,
+          provider,
           auth_provider,
           role,
           is_verified,
           last_login,
           created_at
          )
-         VALUES ($1, $1, $2, $3, 'google', 'user', $4, NOW(), NOW())
-         RETURNING id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at`,
+         VALUES ($1, $1, $2, $3, 'google', 'google', 'user', $4, NOW(), NOW())
+         RETURNING id, name, full_name, phone, email, avatar, provider, auth_provider, role, is_verified, last_login, created_at`,
         [
           normalizeText(name) || normalizedEmail.split('@')[0],
           normalizedEmail,
@@ -294,15 +297,19 @@ const googleAuth = async (req, res, next) => {
          SET name = COALESCE(NULLIF(name, ''), $2),
              full_name = COALESCE(NULLIF(full_name, ''), $2),
              avatar = COALESCE($3, avatar),
+             provider = CASE
+               WHEN provider = 'email' THEN 'google'
+               ELSE COALESCE(provider, auth_provider, 'google')
+             END,
              auth_provider = CASE
                WHEN auth_provider = 'email' THEN 'google'
-               ELSE auth_provider
+               ELSE COALESCE(auth_provider, provider, 'google')
              END,
              is_verified = is_verified OR $4,
              last_login = NOW(),
              updated_at = NOW()
          WHERE id = $1
-         RETURNING id, name, full_name, phone, email, avatar, auth_provider, role, is_verified, last_login, created_at`,
+         RETURNING id, name, full_name, phone, email, avatar, provider, auth_provider, role, is_verified, last_login, created_at`,
         [
           existingUser.id,
           normalizeText(name) || normalizedEmail.split('@')[0],
