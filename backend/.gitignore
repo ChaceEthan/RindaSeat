@@ -10,6 +10,7 @@ yarn-error.log*
 pnpm-debug.log*
 logs/
 *.log
+.backend-dev.pid
 coverage/
 dist/
 build/

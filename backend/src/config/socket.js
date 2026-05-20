@@ -2,17 +2,52 @@ const { Server } = require('socket.io');
 
 let io;
 
-const getAllowedOrigins = () => {
-  const configuredOrigins = process.env.SOCKET_CORS_ORIGIN || process.env.CLIENT_URL || process.env.CLIENT_ORIGIN;
+const isProductionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
-  if (!configuredOrigins || configuredOrigins === '*') {
+const splitOrigins = (value = '') => value
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const getAllowedOrigins = () => {
+  const configuredOrigins = [
+    ...splitOrigins(process.env.SOCKET_CORS_ORIGIN),
+    ...splitOrigins(process.env.CLIENT_URL),
+    ...splitOrigins(process.env.CLIENT_ORIGIN),
+    ...splitOrigins(process.env.FRONTEND_URL),
+    ...splitOrigins(process.env.CORS_ORIGINS)
+  ];
+
+  if (!isProductionRuntime() && (configuredOrigins.length === 0 || configuredOrigins.includes('*'))) {
     return '*';
   }
 
-  return configuredOrigins
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  return [...new Set([
+    ...configuredOrigins.filter((origin) => origin !== '*'),
+    'https://rindaseat.vercel.app'
+  ])];
+};
+
+const isPreviewOriginAllowed = (origin) => {
+  if (process.env.ALLOW_VERCEL_PREVIEW_ORIGINS !== 'true') {
+    return false;
+  }
+
+  try {
+    return new URL(origin).hostname.endsWith('.vercel.app');
+  } catch (error) {
+    return false;
+  }
+};
+
+const socketOrigin = (origin, callback) => {
+  const allowedOrigins = getAllowedOrigins();
+
+  if (!origin || allowedOrigins === '*' || allowedOrigins.includes(origin) || isPreviewOriginAllowed(origin)) {
+    return callback(null, true);
+  }
+
+  return callback(new Error('Not allowed by Socket.IO CORS'));
 };
 
 const socketLogsEnabled = () => process.env.ENABLE_SOCKET_LOGS === 'true';
@@ -20,8 +55,9 @@ const socketLogsEnabled = () => process.env.ENABLE_SOCKET_LOGS === 'true';
 const initializeSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: getAllowedOrigins(),
-      methods: ['GET', 'POST', 'PATCH', 'DELETE']
+      origin: socketOrigin,
+      methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+      credentials: true
     }
   });
 

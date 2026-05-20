@@ -1,8 +1,13 @@
 // @ts-nocheck
 const { query } = require('../config/db');
 const { getSocket } = require('../config/socket');
-const { sendBookingConfirmationEmail } = require('./emailService');
-const { sendBookingSMS } = require('./smsService');
+const { sendBookingConfirmationEmail, isConfigured: isEmailConfigured } = require('./emailService');
+const { sendBookingSMS, isConfigured: isSmsConfigured } = require('./smsService');
+
+const externalNotificationsEnabled = () => (
+  process.env.ENABLE_EXTERNAL_NOTIFICATIONS === 'true'
+  || process.env.NODE_ENV === 'production'
+);
 
 const getBookingNotificationDetails = async (bookingId) => {
   const result = await query(
@@ -72,10 +77,21 @@ const sendBookingConfirmationNotifications = async ({ bookingId, qrImage }) => {
       phone: booking.phone
     };
 
-    await Promise.allSettled([
-      sendBookingConfirmationEmail(user, booking, qrImage || booking.qr_code),
-      sendBookingSMS(booking.phone, buildSmsMessage(booking))
-    ]);
+    if (externalNotificationsEnabled()) {
+      const notificationTasks = [];
+
+      if (isEmailConfigured()) {
+        notificationTasks.push(sendBookingConfirmationEmail(user, booking, qrImage || booking.qr_code));
+      }
+
+      if (isSmsConfigured()) {
+        notificationTasks.push(sendBookingSMS(booking.phone, buildSmsMessage(booking)));
+      }
+
+      await Promise.allSettled(notificationTasks);
+    } else {
+      console.log('[NOTIFICATION] External email/SMS skipped for local demo mode');
+    }
 
     emitBookingConfirmed(booking);
   } catch (error) {

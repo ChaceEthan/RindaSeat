@@ -9,9 +9,20 @@ const { initializeFirebase } = require('./config/firebase');
 const { getDatabaseHost } = require('./utils/checkDatabase');
 const { checkPostgresHealth } = require('./utils/postgresHealthCheck');
 
-const PORT = process.env.PORT || 5000;
 const divider = '-'.repeat(63);
-const degradedModeAllowed = () => process.env.ALLOW_DEGRADED_DB_MODE !== 'false';
+const isProductionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+const resolvePort = () => process.env.PORT || (isProductionRuntime() ? null : 5000);
+const degradedModeAllowed = () => {
+  if (process.env.ALLOW_DEGRADED_DB_MODE === 'true') {
+    return true;
+  }
+
+  if (isProductionRuntime()) {
+    return false;
+  }
+
+  return process.env.ALLOW_DEGRADED_DB_MODE !== 'false';
+};
 
 const validateRuntimeEnvironment = () => {
   try {
@@ -55,6 +66,14 @@ const startServer = async () => {
   }
 
   try {
+    const port = resolvePort();
+
+    if (!port) {
+      console.error('[SERVER] PORT is required in production');
+      process.exitCode = 1;
+      return null;
+    }
+
     const server = http.createServer(app);
     const io = initializeSocket(server);
 
@@ -62,7 +81,7 @@ const startServer = async () => {
 
     server.on('error', (error) => {
       if (error.code === 'EADDRINUSE') {
-        console.error(`[SERVER] Port ${PORT} is already in use`);
+        console.error(`[SERVER] Port ${port} is already in use`);
         console.error('[SERVER] Stop the other process or set a different PORT in .env');
         return;
       }
@@ -70,9 +89,9 @@ const startServer = async () => {
       console.error(`[SERVER] Runtime server error: ${error.message}`);
     });
 
-    server.listen(PORT, () => {
+    server.listen(port, () => {
       const address = server.address();
-      const runningPort = address && address.port ? address.port : PORT;
+      const runningPort = address && address.port ? address.port : port;
       console.log(`[SERVER] Running on port ${runningPort}`);
       console.log(`${divider}\n`);
     });

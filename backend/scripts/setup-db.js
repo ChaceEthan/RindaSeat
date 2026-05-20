@@ -7,6 +7,7 @@ const { Pool } = require('pg');
 
 const DEFAULT_DATABASE = 'rindaseat';
 const MAINTENANCE_DATABASES = ['postgres', 'template1'];
+const isProductionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
 const parseDatabaseUrl = () => {
   if (!process.env.DATABASE_URL) {
@@ -41,7 +42,7 @@ const shouldUseSsl = (databaseUrl) => {
   }
 
   const localHosts = ['localhost', '127.0.0.1', '::1'];
-  return process.env.NODE_ENV === 'production' && !localHosts.includes(databaseUrl.hostname);
+  return isProductionRuntime() && !localHosts.includes(databaseUrl.hostname);
 };
 
 const getSslConfig = (databaseUrl) => {
@@ -50,7 +51,7 @@ const getSslConfig = (databaseUrl) => {
   }
 
   return {
-    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
+    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true' ? true : false
   };
 };
 
@@ -81,6 +82,10 @@ const formatError = (error) => {
 };
 
 const detectPostgresCli = () => {
+  if (isProductionRuntime()) {
+    return;
+  }
+
   const commonWindowsPaths = [
     'C:\\Program Files\\PostgreSQL\\16\\bin\\psql.exe',
     'C:\\Program Files\\PostgreSQL\\15\\bin\\psql.exe',

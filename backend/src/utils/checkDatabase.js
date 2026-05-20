@@ -14,6 +14,8 @@ const REQUIRED_TABLES = [
   'payments'
 ];
 
+const isProductionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+
 const createTableStatus = (existingTables = []) => (
   REQUIRED_TABLES.reduce((status, tableName) => {
     status[tableName] = existingTables.includes(tableName);
@@ -103,7 +105,11 @@ const checkDatabase = async ({ logger = console, silent = false } = {}) => {
     });
 
     if (!silent) {
-      logger.log(`[DB] Connected successfully to ${database}`);
+      const databaseLabel = isProductionRuntime()
+        ? `production database (${database})`
+        : database;
+
+      logger.log(`[DB] Connected successfully to ${databaseLabel}`);
       logger.log('[DB] Pool ready');
 
       if (missingTables.length > 0) {

@@ -107,7 +107,7 @@ const generateHealthReport = () => {
       status: 'running',
       uptime: getUptimeString(),
       environment: process.env.NODE_ENV || 'development',
-      port: Number(process.env.PORT) || 5000
+      port: process.env.PORT || (process.env.NODE_ENV === 'production' ? 'provided-by-platform' : 5000)
     },
     database: {
       status: dbStatus.connected ? 'connected' : 'disconnected',

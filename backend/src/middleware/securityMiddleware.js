@@ -58,6 +58,37 @@ const SecurityHeadersMiddleware = (req, res, next) => {
   return next();
 };
 
+const sanitizeValue = (value) => {
+  if (typeof value === 'string') {
+    return value.replace(/\x00/g, '');
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeValue);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce((clean, [key, nestedValue]) => {
+      if (['__proto__', 'constructor', 'prototype'].includes(key)) {
+        return clean;
+      }
+
+      clean[key] = sanitizeValue(nestedValue);
+      return clean;
+    }, {});
+  }
+
+  return value;
+};
+
+const SanitizeRequestMiddleware = (req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    req.body = sanitizeValue(req.body);
+  }
+
+  return next();
+};
+
 const SuspiciousRequestMiddleware = (req, res, next) => {
   const suspiciousPatterns = [
     /\.\.\//, // Path traversal
@@ -105,6 +136,7 @@ const SuspiciousRequestMiddleware = (req, res, next) => {
 module.exports = {
   BlockedPathMiddleware,
   RequestSizeMiddleware,
+  SanitizeRequestMiddleware,
   SecurityHeadersMiddleware,
   SuspiciousRequestMiddleware
 };

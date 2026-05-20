@@ -40,7 +40,9 @@ const requiredRoutes = [
   '/api/companies',
   '/api/payments',
   '/api/health',
-  '/api/payments/webhooks/stripe'
+  '/api/payments/webhooks/stripe',
+  '/',
+  '/favicon.ico'
 ];
 
 const optionalIntegrationModules = [
@@ -113,7 +115,7 @@ const checkEnv = (results) => {
       return;
     }
 
-    addResult(results, 'pass', 'Environment required variables', 'DATABASE_URL, JWT_SECRET, PORT/defaults OK');
+    addResult(results, 'pass', 'Environment required variables', 'DATABASE_URL, JWT_SECRET, PORT/runtime config OK');
 
     if (validation.missingOptional.length > 0) {
       addResult(results, 'warn', 'Environment optional integrations', `${validation.missingOptional.length} optional values missing or placeholders`);

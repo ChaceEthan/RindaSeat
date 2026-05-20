@@ -6,6 +6,8 @@ const { Pool } = require('pg');
 const DEFAULT_RETRY_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 2000;
 
+const isProductionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+
 const parseDatabaseUrl = () => {
   if (!process.env.DATABASE_URL) {
     return null;
@@ -31,7 +33,7 @@ const shouldUseSsl = () => {
   const hostname = parsedUrl ? parsedUrl.hostname : '';
   const isLocalDatabase = ['localhost', '127.0.0.1', '::1'].includes(hostname);
 
-  return process.env.NODE_ENV === 'production' && !isLocalDatabase;
+  return isProductionRuntime() && !isLocalDatabase;
 };
 
 const getSslConfig = () => {
@@ -41,7 +43,21 @@ const getSslConfig = () => {
 
   // Managed PostgreSQL providers commonly require SSL while local development usually does not.
   return {
-    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
+    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true' ? true : false
+  };
+};
+
+const createUnavailablePool = () => {
+  const error = new Error('DATABASE_URL is required before PostgreSQL connections can be opened');
+  const fail = async () => {
+    throw error;
+  };
+
+  return {
+    connect: fail,
+    query: fail,
+    end: async () => {},
+    on: () => {}
   };
 };
 
@@ -79,13 +95,15 @@ const formatDatabaseError = (error) => {
   return details.length > 0 ? details.join(' - ') : error.name || 'Unknown PostgreSQL error';
 };
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: getSslConfig(),
-  max: Number(process.env.DB_POOL_MAX) || 20,
-  idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30000,
-  connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS) || 5000
-});
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: getSslConfig(),
+    max: Number(process.env.DB_POOL_MAX) || 20,
+    idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30000,
+    connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS) || 5000
+  })
+  : createUnavailablePool();
 
 pool.on('error', (error) => {
   console.error(`[DB ERROR] pool error -> ${formatDatabaseError(error)}`);
@@ -107,7 +125,11 @@ const connectDatabase = async ({ logger = console } = {}) => {
     const result = await client.query('SELECT current_database() AS database');
     const database = result.rows[0] ? result.rows[0].database : 'unknown';
 
-    logger.log(`[DB] Connected successfully to ${database}`);
+    const databaseLabel = isProductionRuntime()
+      ? `production database (${database})`
+      : database;
+
+    logger.log(`[DB] Connected successfully to ${databaseLabel}`);
     logger.log('[DB] Pool ready');
 
     return {

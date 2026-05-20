@@ -15,10 +15,20 @@ const COMMON_POSTGRES_BIN_PATHS = [
   'C:\\Program Files\\PostgreSQL\\14\\bin'
 ];
 const DEFAULT_DATABASE = 'rindaseat';
+const isProductionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
 const getPsqlExecutable = (binPath) => path.join(binPath, 'psql.exe');
 
 const detectPsqlPath = ({ logger = console } = {}) => {
+  if (isProductionRuntime()) {
+    return {
+      available: false,
+      source: 'not-required-in-production',
+      binPath: null,
+      psqlPath: null
+    };
+  }
+
   const detectedBinPath = COMMON_POSTGRES_BIN_PATHS.find((binPath) => (
     fs.existsSync(getPsqlExecutable(binPath))
   ));
@@ -95,7 +105,7 @@ const shouldUseSsl = (databaseUrl) => {
   }
 
   const localHosts = ['localhost', '127.0.0.1', '::1'];
-  return process.env.NODE_ENV === 'production' && !localHosts.includes(databaseUrl.hostname);
+  return isProductionRuntime() && !localHosts.includes(databaseUrl.hostname);
 };
 
 const getSslConfig = (databaseUrl) => {
@@ -104,7 +114,7 @@ const getSslConfig = (databaseUrl) => {
   }
 
   return {
-    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
+    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true' ? true : false
   };
 };
 
@@ -154,7 +164,9 @@ const checkPostgresHealth = async ({ logger = console } = {}) => {
   try {
     const databaseUrl = parseDatabaseUrl();
     const databaseName = getTargetDatabase(databaseUrl);
-    const databaseExists = await checkDatabaseExists({ databaseUrl, databaseName, logger });
+    const databaseExists = isProductionRuntime()
+      ? true
+      : await checkDatabaseExists({ databaseUrl, databaseName, logger });
 
     if (!databaseExists) {
       const status = getDatabaseStatus();

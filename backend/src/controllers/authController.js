@@ -12,6 +12,16 @@ const health = (req, res) => {
   });
 };
 
+const normalizeUser = (user) => ({
+  id: user.id,
+  fullName: user.full_name,
+  name: user.full_name,
+  phone: user.phone,
+  email: user.email,
+  role: user.role,
+  createdAt: user.created_at
+});
+
 const register = async (req, res, next) => {
   try {
     const { fullName, phone, email, password } = req.body;
@@ -44,14 +54,17 @@ const register = async (req, res, next) => {
       [fullName, phone, email, passwordHash, role]
     );
 
-    const user = result.rows[0];
+    const user = normalizeUser(result.rows[0]);
 
     return res.status(201).json({
       success: true,
       data: {
         user,
-        token: generateToken(user)
-      }
+        token: generateToken(user),
+        refreshToken: generateToken(user)
+      },
+      user,
+      token: generateToken(user)
     });
   } catch (error) {
     return next(error);
@@ -92,21 +105,63 @@ const login = async (req, res, next) => {
     }
 
     delete user.password_hash;
+    const normalizedUser = normalizeUser(user);
+    const token = generateToken(normalizedUser);
 
     return res.json({
       success: true,
       data: {
-        user,
-        token: generateToken(user)
-      }
+        user: normalizedUser,
+        token,
+        refreshToken: token
+      },
+      user: normalizedUser,
+      token
     });
   } catch (error) {
     return next(error);
   }
 };
 
+const profile = async (req, res, next) => {
+  try {
+    const result = await query(
+      'SELECT id, full_name, phone, email, role, created_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User profile not found'
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: normalizeUser(result.rows[0])
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const refresh = (req, res) => {
+  const token = generateToken(req.user);
+  return res.json({
+    success: true,
+    data: {
+      token,
+      refreshToken: token
+    },
+    token
+  });
+};
+
 module.exports = {
   health,
   register,
-  login
+  login,
+  profile,
+  refresh
 };
