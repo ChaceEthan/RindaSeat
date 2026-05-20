@@ -123,10 +123,8 @@ if (process.env.NODE_ENV !== 'test' && enableRequestLogging) {
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    app: 'RindaSeat Backend API',
-    status: 'running',
-    environment: process.env.NODE_ENV,
-    version: process.env.APP_VERSION || '1.0.0'
+    service: 'RindaSeat API',
+    status: 'running'
   });
 });
 

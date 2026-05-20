@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Button } from '../../components/buttons/Button';
 import { TextInput } from '../../components/forms/FormInputs';
 import { LoadingSpinner } from '../../components/loaders/Loaders';
+import GoogleAuthButton from '../../components/auth/GoogleAuthButton';
 import { authService } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
@@ -30,12 +31,21 @@ export const LoginPage = () => {
 
     try {
       const response = await authService.login(formData.email, formData.password);
-      const payload = response.data || response;
-      login(payload.user, payload.token, payload.refreshToken || payload.token);
+      const { data, success } = response;
+      
+      if (!success || !data || !data.user || !data.token) {
+        throw new Error('Invalid response from server');
+      }
+
+      login(data.user, data.token, data.refreshToken || data.token);
       toast.success('Login successful');
       navigate(searchParams.get('redirect') || '/dashboard', { replace: true });
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed. Please try again.');
+      console.error('Login error:', error);
+      const errorMessage = error.response?.data?.message 
+        || error.message 
+        || 'Login failed. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -113,13 +123,11 @@ export const LoginPage = () => {
         </div>
 
         {/* Social Login */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <Button variant="outline" size="md">
-            Google
-          </Button>
-          <Button variant="outline" size="md">
-            Facebook
-          </Button>
+        <div className="grid grid-cols-1 gap-3 mb-6">
+          <GoogleAuthButton 
+            size="md"
+            onSuccess={() => navigate(searchParams.get('redirect') || '/dashboard', { replace: true })}
+          />
         </div>
 
         {/* Sign Up Link */}

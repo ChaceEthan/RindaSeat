@@ -7,6 +7,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
 // Request interceptor to add token
@@ -35,23 +36,37 @@ api.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          // Create a plain axios instance for refresh to avoid infinite loops
+          const refreshClient = axios.create({
+            baseURL: API_BASE_URL,
+            withCredentials: true,
+          });
+          
+          const response = await refreshClient.post('/auth/refresh', {
             refreshToken,
           });
 
-          const { token } = response.data;
-          localStorage.setItem('token', token);
+          const { token } = response.data.data || response.data;
+          if (!token) {
+            throw new Error('No token in refresh response');
+          }
 
+          localStorage.setItem('token', token);
           api.defaults.headers.common.Authorization = `Bearer ${token}`;
           originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${token}`;
 
           return api(originalRequest);
+        } else {
+          throw new Error('No refresh token available');
         }
       } catch (refreshError) {
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/auth/login';
+        // Only redirect if not already on login page
+        if (window.location.pathname !== '/auth/login') {
+          window.location.href = '/auth/login?expired=true';
+        }
         return Promise.reject(refreshError);
       }
     }

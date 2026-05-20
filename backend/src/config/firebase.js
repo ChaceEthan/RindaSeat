@@ -8,6 +8,7 @@ const {
 } = require('../utils/firebaseKeyValidator');
 
 let firebaseApp = null;
+let firebaseInitError = null;
 
 const parseServiceAccountJson = (logger = console) => {
   const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
@@ -66,6 +67,7 @@ const initializeFirebase = (logger = console) => {
     return firebaseApp;
   }
 
+  // Check if already initialized by Firebase Admin SDK
   if (admin.apps.length > 0) {
     firebaseApp = admin.app();
     return firebaseApp;
@@ -74,7 +76,10 @@ const initializeFirebase = (logger = console) => {
   const serviceAccount = getFirebaseConfig(logger);
 
   if (!serviceAccount) {
-    logger.log('[FIREBASE] Missing or invalid config - running in degraded mode');
+    if (logger && typeof logger.log === 'function') {
+      logger.log('[FIREBASE] Missing or invalid config - running in degraded mode');
+    }
+    firebaseInitError = new Error('Firebase configuration missing or invalid');
     return null;
   }
 
@@ -82,20 +87,38 @@ const initializeFirebase = (logger = console) => {
     firebaseApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
-    logger.log('[FIREBASE] Initialized successfully');
+    if (logger && typeof logger.log === 'function') {
+      logger.log('[FIREBASE] Initialized successfully');
+    }
     return firebaseApp;
   } catch (error) {
-    logger.warn(`[FIREBASE WARNING] Initialization failed: ${error.message}`);
+    // Check if app was already initialized
+    if (error.code === 'app/duplicate-app') {
+      firebaseApp = admin.app();
+      return firebaseApp;
+    }
+    
+    if (logger && typeof logger.warn === 'function') {
+      logger.warn(`[FIREBASE WARNING] Initialization failed: ${error.message}`);
+    }
+    firebaseInitError = error;
     return null;
   }
 };
 
 const getFirebaseAdmin = () => admin;
-const isFirebaseConfigured = () => Boolean(initializeFirebase({ log: () => {}, warn: () => {} }));
+
+const isFirebaseConfigured = () => {
+  const result = initializeFirebase({ log: () => {}, warn: () => {} });
+  return Boolean(result);
+};
+
+const getFirebaseInitError = () => firebaseInitError;
 
 module.exports = {
   admin,
   getFirebaseAdmin,
   initializeFirebase,
-  isFirebaseConfigured
+  isFirebaseConfigured,
+  getFirebaseInitError
 };

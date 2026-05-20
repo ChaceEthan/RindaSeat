@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Button } from '../../components/buttons/Button';
 import { TextInput } from '../../components/forms/FormInputs';
 import { LoadingSpinner } from '../../components/loaders/Loaders';
+import GoogleAuthButton from '../../components/auth/GoogleAuthButton';
 import { authService } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
@@ -44,12 +45,21 @@ export const SignupPage = () => {
         phone: formData.phone,
         password: formData.password,
       });
-      const payload = response.data || response;
-      login(payload.user, payload.token, payload.refreshToken || payload.token);
-      toast.success('Account created');
+      const { data, success } = response;
+      
+      if (!success || !data || !data.user || !data.token) {
+        throw new Error('Invalid response from server');
+      }
+
+      login(data.user, data.token, data.refreshToken || data.token);
+      toast.success('Account created successfully');
       navigate(searchParams.get('redirect') || '/dashboard', { replace: true });
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Signup failed. Please try again.');
+      console.error('Signup error:', error);
+      const errorMessage = error.response?.data?.message 
+        || error.message 
+        || 'Signup failed. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -68,10 +78,10 @@ export const SignupPage = () => {
             <span className="text-white font-bold text-2xl">RS</span>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Create Account
+            Start Your Journey
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Join RindaSeat today
+            Join RindaSeat - Rwanda&apos;s leading transport platform
           </p>
         </div>
 
@@ -83,7 +93,7 @@ export const SignupPage = () => {
             name="fullName"
             value={formData.fullName}
             onChange={handleChange}
-            placeholder="John Doe"
+            placeholder="Isaac Nzabandora"
             required
           />
 
@@ -145,6 +155,26 @@ export const SignupPage = () => {
             {isLoading ? <LoadingSpinner /> : 'Create Account'}
           </Button>
         </form>
+
+        {/* Divider */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        {/* Social Login */}
+        <div className="grid grid-cols-1 gap-3 mb-6">
+          <GoogleAuthButton 
+            size="md"
+            onSuccess={() => navigate(searchParams.get('redirect') || '/dashboard', { replace: true })}
+          />
+        </div>
 
         {/* Sign In Link */}
         <p className="text-center text-gray-600 dark:text-gray-400">

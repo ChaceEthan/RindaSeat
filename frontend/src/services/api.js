@@ -12,6 +12,11 @@ export const authService = {
     return response.data;
   },
 
+  async googleAuth(idToken) {
+    const response = await api.post('/auth/google', { idToken });
+    return response.data;
+  },
+
   async logout() {
     await api.post('/auth/logout');
   },

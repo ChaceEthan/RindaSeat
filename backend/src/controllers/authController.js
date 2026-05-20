@@ -55,16 +55,15 @@ const register = async (req, res, next) => {
     );
 
     const user = normalizeUser(result.rows[0]);
+    const token = generateToken(user);
 
     return res.status(201).json({
       success: true,
       data: {
         user,
-        token: generateToken(user),
-        refreshToken: generateToken(user)
-      },
-      user,
-      token: generateToken(user)
+        token,
+        refreshToken: token
+      }
     });
   } catch (error) {
     return next(error);
@@ -114,9 +113,7 @@ const login = async (req, res, next) => {
         user: normalizedUser,
         token,
         refreshToken: token
-      },
-      user: normalizedUser,
-      token
+      }
     });
   } catch (error) {
     return next(error);
@@ -158,10 +155,89 @@ const refresh = (req, res) => {
   });
 };
 
+const googleAuth = async (req, res, next) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Firebase ID token is required'
+      });
+    }
+
+    // Verify Firebase token
+    const { getFirebaseAdmin, isFirebaseConfigured } = require('../config/firebase');
+    
+    if (!isFirebaseConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: 'Firebase authentication is not configured'
+      });
+    }
+
+    const admin = getFirebaseAdmin();
+    let decodedToken;
+
+    try {
+      decodedToken = await admin.auth().verifyIdToken(idToken);
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired Firebase token'
+      });
+    }
+
+    const { uid, email, name, picture } = decodedToken;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email not available from Google account'
+      });
+    }
+
+    // Find or create user
+    let result = await query(
+      'SELECT id, full_name, phone, email, role, created_at FROM users WHERE email = $1',
+      [email]
+    );
+
+    let user;
+    if (result.rowCount === 0) {
+      // Create new user from Google
+      const newUserResult = await query(
+        `INSERT INTO users (full_name, email, role, created_at)
+         VALUES ($1, $2, $3, NOW())
+         RETURNING id, full_name, phone, email, role, created_at`,
+        [name || email.split('@')[0], email, 'passenger']
+      );
+      user = newUserResult.rows[0];
+    } else {
+      user = result.rows[0];
+    }
+
+    const normalizedUser = normalizeUser(user);
+    const token = generateToken(normalizedUser);
+
+    return res.json({
+      success: true,
+      data: {
+        user: normalizedUser,
+        token,
+        refreshToken: token
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   health,
   register,
   login,
+  googleAuth,
   profile,
   refresh
 };
