@@ -5,7 +5,9 @@ import {
   signInWithPopup, 
   GoogleAuthProvider,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  browserLocalPersistence,
+  setPersistence
 } from 'firebase/auth';
 
 // Firebase configuration from environment variables
@@ -19,12 +21,45 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Validate Firebase config
-const isFirebaseConfigured = () => {
-  return firebaseConfig.apiKey 
-    && firebaseConfig.authDomain 
-    && firebaseConfig.projectId;
+const requiredFirebaseKeys = [
+  ['apiKey', 'VITE_FIREBASE_API_KEY'],
+  ['authDomain', 'VITE_FIREBASE_AUTH_DOMAIN'],
+  ['projectId', 'VITE_FIREBASE_PROJECT_ID'],
+  ['appId', 'VITE_FIREBASE_APP_ID'],
+];
+
+const isPlaceholderValue = (value) => {
+  const normalized = String(value || '').trim();
+  return !normalized
+    || normalized.startsWith('@')
+    || normalized.startsWith('YOUR_')
+    || normalized.includes('YOUR_FIREBASE')
+    || normalized.includes('your-project');
 };
+
+const getCurrentHostname = () => {
+  if (typeof window === 'undefined') return '';
+  return window.location.hostname;
+};
+
+// Validate Firebase config
+const getFirebaseConfigStatus = () => {
+  const missing = requiredFirebaseKeys
+    .filter(([configKey]) => isPlaceholderValue(firebaseConfig[configKey]))
+    .map(([, envKey]) => envKey);
+  const configured = missing.length === 0;
+
+  return {
+    configured,
+    missing,
+    authDomain: firebaseConfig.authDomain || '',
+    projectId: firebaseConfig.projectId || '',
+    currentDomain: getCurrentHostname(),
+    authorizedDomainHint: 'Add rinda-seat.vercel.app and rindaseat.vercel.app in Firebase Authentication > Settings > Authorized domains.',
+  };
+};
+
+const isFirebaseConfigured = () => getFirebaseConfigStatus().configured;
 
 let firebaseApp = null;
 let firebaseAuth = null;
@@ -33,13 +68,15 @@ const initializeFirebase = () => {
   if (firebaseApp) return firebaseApp;
   
   if (!isFirebaseConfigured()) {
-    console.warn('[Firebase] Configuration incomplete - Google Auth will not be available');
+    const status = getFirebaseConfigStatus();
+    console.warn(`[Firebase] Configuration incomplete - missing ${status.missing.join(', ')}`);
     return null;
   }
 
   try {
     firebaseApp = initializeApp(firebaseConfig);
     firebaseAuth = getAuth(firebaseApp);
+    firebaseAuth.useDeviceLanguage();
     if (import.meta.env.VITE_DEBUG_FIREBASE === 'true') {
       console.info('[Firebase] Initialized successfully');
     }
@@ -57,6 +94,32 @@ const getFirebaseAuth = () => {
   return firebaseAuth;
 };
 
+const getFirebaseAuthErrorMessage = (error) => {
+  const code = error?.code || '';
+
+  if (code === 'auth/popup-closed-by-user') {
+    return 'Google sign-in was closed before it finished.';
+  }
+
+  if (code === 'auth/popup-blocked') {
+    return 'The browser blocked the Google sign-in popup. Allow popups for this site and try again.';
+  }
+
+  if (code === 'auth/unauthorized-domain') {
+    return `Firebase rejected this domain (${getCurrentHostname()}). Add it to Firebase Authentication authorized domains.`;
+  }
+
+  if (code === 'auth/operation-not-allowed') {
+    return 'Google provider is not enabled in Firebase Authentication.';
+  }
+
+  if (code === 'auth/invalid-api-key') {
+    return 'Firebase API key is invalid. Check the VITE_FIREBASE_API_KEY value in Vercel.';
+  }
+
+  return error?.message || 'Google sign-in failed';
+};
+
 export const firebaseAuthService = {
   async signInWithGoogle() {
     try {
@@ -67,10 +130,13 @@ export const firebaseAuthService = {
       }
 
       const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
       provider.setCustomParameters({
         prompt: 'select_account'
       });
 
+      await setPersistence(auth, browserLocalPersistence);
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
@@ -87,7 +153,8 @@ export const firebaseAuthService = {
       console.error('[Google Auth Error]', error);
       return {
         success: false,
-        error: error.message || 'Google sign-in failed'
+        error: getFirebaseAuthErrorMessage(error),
+        code: error.code
       };
     }
   },
@@ -115,6 +182,7 @@ export const firebaseAuthService = {
   },
 
   isConfigured: isFirebaseConfigured,
+  getConfigurationStatus: getFirebaseConfigStatus,
 };
 
 export default firebaseAuthService;

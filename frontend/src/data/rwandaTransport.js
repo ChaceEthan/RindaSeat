@@ -61,9 +61,63 @@ export const KIGALI_HUB = {
   city: 'Kigali',
   district: 'Nyarugenge',
   province: 'Kigali City',
+  country: 'Rwanda',
   latitude: -1.9392,
   longitude: 30.0446,
 };
+
+export const EAST_AFRICA_STATIONS = [
+  {
+    id: 'kampala',
+    name: 'Kampala Coach Terminal',
+    city: 'Kampala',
+    district: 'Kampala Central',
+    province: 'Central Region',
+    country: 'Uganda',
+    latitude: 0.3476,
+    longitude: 32.5825,
+  },
+  {
+    id: 'nairobi',
+    name: 'Nairobi River Road Terminal',
+    city: 'Nairobi',
+    district: 'Nairobi Central',
+    province: 'Nairobi County',
+    country: 'Kenya',
+    latitude: -1.2864,
+    longitude: 36.8172,
+  },
+  {
+    id: 'goma',
+    name: 'Goma Grand Barrier Stop',
+    city: 'Goma',
+    district: 'Goma',
+    province: 'North Kivu',
+    country: 'DR Congo',
+    latitude: -1.6585,
+    longitude: 29.2205,
+  },
+  {
+    id: 'bujumbura',
+    name: 'Bujumbura Gare du Nord',
+    city: 'Bujumbura',
+    district: 'Mukaza',
+    province: 'Bujumbura Mairie',
+    country: 'Burundi',
+    latitude: -3.3614,
+    longitude: 29.3599,
+  },
+  {
+    id: 'dar-es-salaam',
+    name: 'Dar es Salaam Ubungo Terminal',
+    city: 'Dar es Salaam',
+    district: 'Ubungo',
+    province: 'Dar es Salaam',
+    country: 'Tanzania',
+    latitude: -6.7924,
+    longitude: 39.2083,
+  },
+];
 
 const slugify = (value) => String(value || '')
   .toLowerCase()
@@ -78,9 +132,11 @@ export const RWANDA_STATIONS = [
     city: district.name,
     district: district.name,
     province: district.province,
+    country: 'Rwanda',
     latitude: district.latitude,
     longitude: district.longitude,
   })),
+  ...EAST_AFRICA_STATIONS,
 ];
 
 export const RWANDA_OPERATORS = [
@@ -151,7 +207,7 @@ export const RWANDA_OPERATORS = [
   },
   {
     id: 'jaguar-executive',
-    name: 'Jaguar Executive',
+    name: 'Jaguar Executive Coaches',
     logoPlaceholder: 'JE',
     rating: 4.7,
     reviewCount: 1120,
@@ -161,6 +217,19 @@ export const RWANDA_OPERATORS = [
     busTypes: ['Executive Bus', 'VIP Bus', 'Luxury Coach'],
     amenities: ['Extra legroom', 'Onboard host', 'Priority boarding', 'Air conditioning'],
     brandColor: '#111827',
+  },
+  {
+    id: 'east-africa-link',
+    name: 'East Africa Link',
+    logoPlaceholder: 'EA',
+    rating: 4.5,
+    reviewCount: 680,
+    supportPhone: '+250 788 640 796',
+    email: 'regional@eastafricalink.rw',
+    terminal: 'Nyabugogo Cross-Border Desk',
+    busTypes: ['VIP Bus', 'Luxury Coach', 'Executive Bus'],
+    amenities: ['Cross-border manifests', 'Immigration stop alerts', 'USB charging', 'Reclining seats'],
+    brandColor: '#0f172a',
   },
   {
     id: 'royal-express',
@@ -377,6 +446,11 @@ const buildRoutePairs = () => {
     ['Nyabihu', 'Rubavu'],
     ['Ngororero', 'Muhanga'],
     ['Karongi', 'Ngororero'],
+    ['Kigali', 'Kampala'],
+    ['Kigali', 'Nairobi'],
+    ['Kigali', 'Goma'],
+    ['Kigali', 'Bujumbura'],
+    ['Kigali', 'Dar es Salaam'],
   ].forEach(([from, to]) => {
     add(from, to);
     add(to, from);
@@ -388,6 +462,47 @@ const buildRoutePairs = () => {
 const ROUTE_PAIRS = buildRoutePairs();
 
 const stationByCity = (city) => RWANDA_STATIONS.find((station) => station.city === city) || KIGALI_HUB;
+
+const getBorderCrossings = (origin, destination) => {
+  const pair = [origin.country, destination.country].sort().join('-');
+  const crossings = {
+    'Rwanda-Uganda': ['Gatuna/Katuna border'],
+    'Kenya-Rwanda': ['Gatuna/Katuna border', 'Busia or Malaba border'],
+    'DR Congo-Rwanda': ['Goma/La Corniche border'],
+    'Burundi-Rwanda': ['Akanyaru border'],
+    'Rwanda-Tanzania': ['Rusumo border'],
+  };
+
+  return crossings[pair] || [];
+};
+
+const getRouteStops = (from, to, origin, destination) => {
+  if (from === 'Kigali' && to === 'Kampala') {
+    return ['Nyabugogo', 'Sonatubes', 'Gishushu', 'Remera', 'Nyacyonga', 'Gatuna', 'Kabale', 'Mbarara', 'Kampala'];
+  }
+
+  if (from === 'Kigali' && to === 'Nairobi') {
+    return ['Nyabugogo', 'Remera', 'Gatuna', 'Mbarara', 'Kampala', 'Jinja', 'Busia', 'Kisumu', 'Nakuru', 'Nairobi'];
+  }
+
+  if (from === 'Kigali' && to === 'Goma') {
+    return ['Nyabugogo', 'Rulindo', 'Musanze', 'Nyabihu', 'Rubavu', 'Goma'];
+  }
+
+  if (from === 'Kigali' && to === 'Bujumbura') {
+    return ['Nyabugogo', 'Muhanga', 'Nyanza', 'Huye', 'Akanyaru', 'Kayanza', 'Bujumbura'];
+  }
+
+  if (from === 'Kigali' && to === 'Dar es Salaam') {
+    return ['Nyabugogo', 'Rwamagana', 'Kayonza', 'Rusumo', 'Kahama', 'Dodoma', 'Morogoro', 'Dar es Salaam'];
+  }
+
+  if (from === 'Kigali') {
+    return ['Nyabugogo', 'Sonatubes', 'Gishushu', 'Remera', destination.city];
+  }
+
+  return [origin.city, 'District stop', 'Main road checkpoint', 'Nyabugogo'];
+};
 
 const buildBus = (operator, routeHash, index) => {
   const type = operator.busTypes[(routeHash + index) % operator.busTypes.length];
@@ -421,7 +536,13 @@ const buildTripForRoute = ({ from, to }, time, date, scheduleIndex, routeIndex) 
   const price = Math.max(900, Math.round(baseFare / 100) * 100);
   const sold = Math.min(bus.totalSeats - 3, 4 + (routeHash % Math.max(8, bus.totalSeats - 9)));
   const seatsLeft = Math.max(3, bus.totalSeats - sold - (scheduleIndex % 3));
+  const bookedSeats = Math.max(0, bus.totalSeats - seatsLeft);
+  const occupancyPercent = Math.round((bookedSeats / bus.totalSeats) * 100);
   const dateKey = toDateKey(date);
+  const isCrossBorder = origin.country !== 'Rwanda' || destination.country !== 'Rwanda';
+  const routeStops = getRouteStops(from, to, origin, destination);
+  const borderCrossings = getBorderCrossings(origin, destination);
+  const status = seatsLeft <= 7 ? 'selling-fast' : scheduleIndex % 4 === 0 ? 'boarding' : 'scheduled';
 
   return {
     id: `rw-${dateKey}-${slugify(from)}-${slugify(to)}-${time.replace(':', '')}-${scheduleIndex}`,
@@ -434,6 +555,8 @@ const buildTripForRoute = ({ from, to }, time, date, scheduleIndex, routeIndex) 
     arrivalDistrict: destination.district,
     departureProvince: origin.province,
     arrivalProvince: destination.province,
+    departureCountry: origin.country,
+    arrivalCountry: destination.country,
     departureDate: departureDate.toISOString(),
     arrivalDate: arrivalDate.toISOString(),
     date: departureDate.toISOString(),
@@ -446,9 +569,25 @@ const buildTripForRoute = ({ from, to }, time, date, scheduleIndex, routeIndex) 
     price,
     seatsLeft,
     availableSeats: seatsLeft,
-    status: seatsLeft <= 7 ? 'selling-fast' : scheduleIndex % 4 === 0 ? 'boarding' : 'scheduled',
+    bookedSeats,
+    totalSeats: bus.totalSeats,
+    occupancyPercent,
+    passengerLoadPercent: occupancyPercent,
+    status,
+    boardingStatus: status === 'boarding' ? 'Active boarding' : status === 'selling-fast' ? 'Selling fast' : 'On time',
     platform: from === 'Kigali' ? `Bay ${((routeHash + scheduleIndex) % 8) + 1}` : `Stand ${((routeHash + scheduleIndex) % 4) + 1}`,
     liveDemand: seatsLeft <= 7 ? 'High demand' : scheduleIndex % 3 === 0 ? 'Updating live' : 'Seats available',
+    paymentMethods: ['MTN MOMO'],
+    ticketType: 'QR ticket',
+    isCrossBorder,
+    borderCrossings,
+    routeStops,
+    driverApp: {
+      pickupQueueEnabled: true,
+      livePassengerMarkers: true,
+      boardingQrScan: true,
+      seatStatusSync: true,
+    },
     company: {
       ...operator,
       phone: operator.supportPhone,
@@ -531,6 +670,70 @@ export const getRwandaTripMeta = () => ({
   })),
   busTypes: RWANDA_BUS_TYPES,
 });
+
+export const LIVE_PICKUP_POINTS = [
+  { id: 'sonatubes', name: 'Sonatubes', latitude: -1.9607, longitude: 30.1017, roadNote: 'Kicukiro outbound lane' },
+  { id: 'gishushu', name: 'Gishushu', latitude: -1.9486, longitude: 30.0963, roadNote: 'KG 9 Avenue stop' },
+  { id: 'remera', name: 'Remera', latitude: -1.9545, longitude: 30.1121, roadNote: 'Stadium junction' },
+  { id: 'nyacyonga', name: 'Nyacyonga', latitude: -1.8446, longitude: 30.0809, roadNote: 'Northern corridor pickup' },
+  { id: 'kabuga', name: 'Kabuga', latitude: -1.9459, longitude: 30.2149, roadNote: 'Eastern corridor pickup' },
+];
+
+export const getLiveTrackingSnapshot = (trip = searchRwandaTrips({ from: 'Kigali', limit: 1 })[0]) => {
+  const stops = trip?.routeStops?.length ? trip.routeStops : ['Nyabugogo', 'Sonatubes', 'Gishushu', 'Remera', trip?.arrival || 'Huye'];
+  const seed = hashString(trip?.id || `${trip?.departure}-${trip?.arrival}`);
+  const progressPercent = Math.max(18, Math.min(82, 24 + (seed % 55)));
+  const stopIndex = Math.min(stops.length - 2, Math.max(0, Math.floor((progressPercent / 100) * (stops.length - 1))));
+  const currentStop = stops[stopIndex];
+  const nextStop = stops[stopIndex + 1] || stops[stops.length - 1];
+  const seatsLeft = Number(trip?.seatsLeft || 8);
+  const totalSeats = Number(trip?.totalSeats || trip?.bus?.totalSeats || 40);
+  const passengersOnboard = Math.max(0, totalSeats - seatsLeft);
+
+  return {
+    tripId: trip?.id,
+    operator: trip?.company?.name || 'RindaSeat Coach',
+    departure: trip?.departure || 'Kigali',
+    arrival: trip?.arrival || 'Huye',
+    currentStop,
+    currentLocation: currentStop,
+    nextStop,
+    etaToNextStop: `${8 + (seed % 18)} min`,
+    progressPercent,
+    seatsLeft,
+    totalSeats,
+    passengersOnboard,
+    latitude: LIVE_PICKUP_POINTS[stopIndex % LIVE_PICKUP_POINTS.length]?.latitude || KIGALI_HUB.latitude,
+    longitude: LIVE_PICKUP_POINTS[stopIndex % LIVE_PICKUP_POINTS.length]?.longitude || KIGALI_HUB.longitude,
+    remainingStops: stops.slice(stopIndex + 1).map((name, index) => ({
+      name,
+      eta: `${10 + (index * 14) + (seed % 6)} min`,
+    })),
+  };
+};
+
+export const getRoadsidePickupOptions = (trip = searchRwandaTrips({ from: 'Kigali', limit: 1 })[0]) => (
+  LIVE_PICKUP_POINTS.map((point, index) => ({
+    ...point,
+    distanceKm: Number((0.4 + (index * 0.7)).toFixed(1)),
+    eta: `${6 + (index * 4)} min`,
+    seatsLeft: Math.max(2, Number(trip?.seatsLeft || 10) - index),
+    fare: Number(trip?.price || 2500),
+    driverNotification: {
+      passengerName: 'Pending passenger',
+      passengerPhone: 'Pending phone',
+      markerType: 'roadside-pickup',
+      pickupPoint: point.name,
+    },
+  }))
+);
+
+export const DRIVER_APP_SERVICE_BLUEPRINT = {
+  sharedTripFields: ['tripId', 'routeStops', 'seatsLeft', 'passengersOnboard', 'boardingStatus'],
+  driverQueueFields: ['passengerName', 'phone', 'pickupPoint', 'latitude', 'longitude', 'etaToPickup', 'seatCount'],
+  boardingActions: ['scanQrTicket', 'confirmBoarding', 'releaseNoShowSeat', 'syncSeatStatus'],
+  realtimeChannels: ['driver-location', 'passenger-pickup-marker', 'seat-inventory', 'boarding-confirmation'],
+};
 
 const DEMO_BOOKINGS_KEY = 'rindaseat_demo_bookings';
 

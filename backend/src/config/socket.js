@@ -25,7 +25,8 @@ const getAllowedOrigins = () => {
 
   return [...new Set([
     ...configuredOrigins.filter((origin) => origin !== '*'),
-    'https://rindaseat.vercel.app'
+    'https://rindaseat.vercel.app',
+    'https://rinda-seat.vercel.app'
   ])];
 };
 

@@ -13,6 +13,10 @@ const getAuthErrorMessage = (error) => {
     return 'RindaSeat API is not reachable. Check VITE_API_URL or start the backend service.';
   }
 
+  if (error?.response?.status === 503 && error?.response?.data?.message?.includes('Firebase authentication')) {
+    return 'Backend Firebase Admin SDK is not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.';
+  }
+
   return error.response?.data?.message || error.message || 'Sign in failed. Please try again.';
 };
 
@@ -22,7 +26,8 @@ export const GoogleAuthButton = ({ onSuccess, size = 'md' }) => {
 
   const handleGoogleAuth = async () => {
     if (!firebaseAuthService.isConfigured()) {
-      toast.error('Google authentication is not configured');
+      const status = firebaseAuthService.getConfigurationStatus();
+      toast.error(`Google authentication is not configured. Missing: ${status.missing.join(', ')}`);
       return;
     }
 

@@ -40,7 +40,7 @@ const configuredOrigins = [
 ];
 const allowedOrigins = [...new Set([
   ...configuredOrigins,
-  ...(isProductionRuntime() ? ['https://rindaseat.vercel.app'] : [])
+  ...(isProductionRuntime() ? ['https://rindaseat.vercel.app', 'https://rinda-seat.vercel.app'] : [])
 ])];
 const maxRequestBodySize = Number(process.env.MAX_FILE_UPLOAD_SIZE) || 1024 * 1024;
 const enableRequestLogging = process.env.ENABLE_REQUEST_LOGGING !== 'false';
