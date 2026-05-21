@@ -1,4 +1,8 @@
 {
+  "env": {
+    "VITE_API_URL": "https://rindaseat.onrender.com",
+    "VITE_SOCKET_URL": "https://rindaseat.onrender.com"
+  },
   "headers": [
     {
       "source": "/(.*)",

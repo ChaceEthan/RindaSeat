@@ -41,12 +41,12 @@ NODE_ENV=development
 PORT=5000
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/rindaseat
 JWT_SECRET=replace-with-a-long-random-secret
-CLIENT_URL=http://localhost:3000
-SOCKET_CORS_ORIGIN=http://localhost:3000
+CLIENT_URL=<your frontend origin>
+SOCKET_CORS_ORIGIN=<your frontend origin>
 
 # frontend/.env
-VITE_API_URL=http://localhost:5000/api
-VITE_SOCKET_URL=http://localhost:5000
+VITE_API_URL=https://rindaseat.onrender.com
+VITE_SOCKET_URL=https://rindaseat.onrender.com
 ```
 
 Start both apps:
@@ -102,11 +102,11 @@ npm run preview
 Production builds use:
 
 ```bash
-VITE_API_URL=https://rindaseat.onrender.com/api
+VITE_API_URL=https://rindaseat.onrender.com
 VITE_SOCKET_URL=https://rindaseat.onrender.com
 ```
 
-If these are not set during a production build, the frontend code defaults to the same Render URLs. Development defaults to `http://localhost:5000`.
+If `VITE_API_URL` is not set during a production build, the frontend code defaults to the same Render origin and appends `/api` internally.
 
 ## PostgreSQL Setup
 
@@ -156,7 +156,7 @@ SOCKET_CORS_ORIGIN=https://rindaseat.vercel.app
 DEFAULT_CURRENCY=RWF
 ```
 
-Render provides `PORT`; do not set it manually unless Render asks you to. The backend exits in production if `PORT`, `DATABASE_URL`, or `JWT_SECRET` are missing, rather than falling back to localhost.
+Render provides `PORT`; do not set it manually unless Render asks you to. The backend exits in production if `PORT`, `DATABASE_URL`, or `JWT_SECRET` are missing, rather than falling back to a local machine.
 
 Optional Render variables:
 
@@ -184,7 +184,7 @@ Create a Vercel project:
 Production environment variables:
 
 ```bash
-VITE_API_URL=https://rindaseat.onrender.com/api
+VITE_API_URL=https://rindaseat.onrender.com
 VITE_SOCKET_URL=https://rindaseat.onrender.com
 ```
 
@@ -288,7 +288,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 Frontend required on Vercel:
 
 ```bash
-VITE_API_URL=https://rindaseat.onrender.com/api
+VITE_API_URL=https://rindaseat.onrender.com
 VITE_SOCKET_URL=https://rindaseat.onrender.com
 ```
 
@@ -311,7 +311,7 @@ Do not log raw `DATABASE_URL`, JWT secrets, Firebase private keys, Stripe secret
 
 ## Troubleshooting
 
-Backend tries `localhost:5432` in production:
+Backend tries a local database in production:
 
 - Confirm Render has `DATABASE_URL` set.
 - Confirm `NODE_ENV=production`.
@@ -325,9 +325,9 @@ Firebase private key warning:
 - Keep the `BEGIN PRIVATE KEY` and `END PRIVATE KEY` markers.
 - Do not paste a multiline JSON fragment into `.env`.
 
-Frontend calls localhost after Vercel deploy:
+Frontend calls the wrong API after Vercel deploy:
 
-- Set `VITE_API_URL=https://rindaseat.onrender.com/api`.
+- Set `VITE_API_URL=https://rindaseat.onrender.com`.
 - Set `VITE_SOCKET_URL=https://rindaseat.onrender.com`.
 - Redeploy; Vite embeds env variables at build time.
 
@@ -363,4 +363,4 @@ Frontend:
 - Home, auth, trip search, booking, payment, tickets, dashboard, and admin routes render.
 - Production API requests go to `https://rindaseat.onrender.com/api`.
 - Production socket URL is `https://rindaseat.onrender.com`.
-- No production bundle references `localhost:5000`.
+- No production bundle references a local backend.

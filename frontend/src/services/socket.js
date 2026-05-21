@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client';
-import { IS_PRODUCTION, SOCKET_URL } from '../config/environment';
+import { IS_PRODUCTION, SOCKET_ENABLED, SOCKET_URL } from '../config/environment';
 
 let socket;
 let disabledUntil = 0;
@@ -7,6 +7,10 @@ let disabledUntil = 0;
 const SOCKET_COOLDOWN_MS = 60_000;
 
 export const getSocket = () => {
+  if (!SOCKET_ENABLED) {
+    return null;
+  }
+
   if (!socket) {
     socket = io(SOCKET_URL, {
       autoConnect: false,
@@ -28,6 +32,10 @@ export const getSocket = () => {
 
 export const connectSocket = () => {
   const activeSocket = getSocket();
+
+  if (!activeSocket) {
+    return null;
+  }
 
   if (!activeSocket.connected && Date.now() > disabledUntil) {
     activeSocket.connect();

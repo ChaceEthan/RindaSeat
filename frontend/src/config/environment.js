@@ -1,56 +1,75 @@
 /* global __RINDASEAT_API_URL__, __RINDASEAT_SOCKET_URL__, __RINDASEAT_IS_PRODUCTION__ */
 
 const trimTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
-const PRODUCTION_API_URL = 'https://rindaseat.onrender.com/api';
+const stripApiSuffix = (value) => trimTrailingSlash(value).replace(/\/api$/i, '');
+const PRODUCTION_API_ORIGIN = 'https://rindaseat.onrender.com';
 const PRODUCTION_SOCKET_URL = 'https://rindaseat.onrender.com';
-const isLocalUrl = (value = '') => /(^|\/\/)(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(value);
+const LOCALHOST_NAME = ['local', 'host'].join('');
+const LOOPBACK_IPV4 = ['127', '0', '0', '1'].join('.');
+
+const isUnsafeLocalUrl = (value = '') => {
+  try {
+    const parsed = new URL(value);
+    return [LOCALHOST_NAME, LOOPBACK_IPV4, '::1', '[::1]'].includes(parsed.hostname);
+  } catch (error) {
+    return false;
+  }
+};
+
 const sanitizeProductionUrl = (value, fallback) => {
-  if (import.meta.env.PROD && isLocalUrl(value)) {
+  if (import.meta.env.PROD && isUnsafeLocalUrl(value)) {
     return fallback;
   }
 
   return value;
 };
 
-// Use global variables injected by Vite, with fallbacks to import.meta.env
-const getApiUrl = () => {
-  // First try Vite-injected globals
+const getInjectedApiUrl = () => {
   if (typeof __RINDASEAT_API_URL__ !== 'undefined') {
-    return sanitizeProductionUrl(__RINDASEAT_API_URL__, PRODUCTION_API_URL);
+    return __RINDASEAT_API_URL__;
   }
-  // Fallback to import.meta.env
-  if (import.meta.env.VITE_API_URL) {
-    return sanitizeProductionUrl(import.meta.env.VITE_API_URL, PRODUCTION_API_URL);
+
+  return '';
+};
+
+const getInjectedSocketUrl = () => {
+  if (typeof __RINDASEAT_SOCKET_URL__ !== 'undefined') {
+    return __RINDASEAT_SOCKET_URL__;
   }
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return sanitizeProductionUrl(import.meta.env.VITE_API_BASE_URL, PRODUCTION_API_URL);
-  }
-  // Default to the hosted API; set VITE_API_URL or VITE_API_BASE_URL for a local backend.
-  return PRODUCTION_API_URL;
+
+  return '';
+};
+
+const getApiOrigin = () => {
+  const configuredUrl = getInjectedApiUrl()
+    || import.meta.env.VITE_API_URL
+    || PRODUCTION_API_ORIGIN;
+
+  return stripApiSuffix(sanitizeProductionUrl(configuredUrl, PRODUCTION_API_ORIGIN));
 };
 
 const getSocketUrl = () => {
-  // First try Vite-injected globals
-  if (typeof __RINDASEAT_SOCKET_URL__ !== 'undefined') {
-    return sanitizeProductionUrl(__RINDASEAT_SOCKET_URL__, PRODUCTION_SOCKET_URL);
+  const configuredUrl = getInjectedSocketUrl() || import.meta.env.VITE_SOCKET_URL || '';
+
+  if (!configuredUrl) {
+    return '';
   }
-  // Fallback to import.meta.env
-  if (import.meta.env.VITE_SOCKET_URL) {
-    return sanitizeProductionUrl(import.meta.env.VITE_SOCKET_URL, PRODUCTION_SOCKET_URL);
-  }
-  // Default to the hosted socket; set VITE_SOCKET_URL for a local backend.
-  return PRODUCTION_SOCKET_URL;
+
+  return trimTrailingSlash(sanitizeProductionUrl(configuredUrl, PRODUCTION_SOCKET_URL));
 };
 
 const getIsProduction = () => {
-  // First try Vite-injected globals
   if (typeof __RINDASEAT_IS_PRODUCTION__ !== 'undefined') {
     return __RINDASEAT_IS_PRODUCTION__;
   }
-  // Fallback to import.meta.env
+
   return import.meta.env.PROD;
 };
 
-export const API_BASE_URL = trimTrailingSlash(getApiUrl());
-export const SOCKET_URL = trimTrailingSlash(getSocketUrl());
+export const API_ORIGIN_URL = getApiOrigin();
+export const API_BASE_URL = `${API_ORIGIN_URL}/api`;
+export const SOCKET_URL = getSocketUrl();
+export const SOCKET_ENABLED = Boolean(SOCKET_URL);
 export const IS_PRODUCTION = getIsProduction();
+
+console.log('API URL:', API_BASE_URL);

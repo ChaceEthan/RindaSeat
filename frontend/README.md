@@ -88,7 +88,7 @@ frontend/
 
 ### Prerequisites
 - Node.js 16+ and npm/yarn
-- Backend API running on `http://localhost:5000`
+- Backend API origin configured with `VITE_API_URL`
 
 ### Installation
 
@@ -105,8 +105,8 @@ npm install
 3. Configure environment variables:
 Create a `.env` file in the root directory:
 ```bash
-VITE_API_BASE_URL=http://localhost:5000/api
-VITE_SOCKET_URL=http://localhost:5000
+VITE_API_URL=https://rindaseat.onrender.com
+VITE_SOCKET_URL=https://rindaseat.onrender.com
 ```
 
 ### Development
@@ -116,7 +116,7 @@ Start the development server:
 npm run dev
 ```
 
-The app will open at `http://localhost:3000`
+Vite will print the local dev URL in the terminal.
 
 ### Build
 
@@ -185,7 +185,7 @@ npm run preview
 
 The frontend connects to the backend API with:
 
-- **Base URL**: `http://localhost:5000/api`
+- **Base URL**: `${VITE_API_URL}/api`
 - **Authentication**: JWT tokens in localStorage
 - **Auto-refresh**: Token refresh on 401 responses
 - **Request interceptors**: Automatic token injection
@@ -393,8 +393,8 @@ npm run build
 ## Environment Variables
 
 ```
-VITE_API_BASE_URL=http://localhost:5000/api
-VITE_SOCKET_URL=http://localhost:5000
+VITE_API_URL=https://rindaseat.onrender.com
+VITE_SOCKET_URL=https://rindaseat.onrender.com
 ```
 
 ## Development Tools
