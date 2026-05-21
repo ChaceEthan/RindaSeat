@@ -25,8 +25,8 @@ const getApiUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return sanitizeProductionUrl(import.meta.env.VITE_API_BASE_URL, PRODUCTION_API_URL);
   }
-  // Development fallback
-  return import.meta.env.DEV ? 'http://localhost:5000/api' : PRODUCTION_API_URL;
+  // Default to the hosted API; set VITE_API_URL or VITE_API_BASE_URL for a local backend.
+  return PRODUCTION_API_URL;
 };
 
 const getSocketUrl = () => {
@@ -38,8 +38,8 @@ const getSocketUrl = () => {
   if (import.meta.env.VITE_SOCKET_URL) {
     return sanitizeProductionUrl(import.meta.env.VITE_SOCKET_URL, PRODUCTION_SOCKET_URL);
   }
-  // Development fallback
-  return import.meta.env.DEV ? 'http://localhost:5000' : PRODUCTION_SOCKET_URL;
+  // Default to the hosted socket; set VITE_SOCKET_URL for a local backend.
+  return PRODUCTION_SOCKET_URL;
 };
 
 const getIsProduction = () => {

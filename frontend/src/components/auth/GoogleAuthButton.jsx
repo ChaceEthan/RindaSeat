@@ -8,6 +8,14 @@ import firebaseAuthService from '../../services/firebaseAuthService';
 import { authService } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 
+const getAuthErrorMessage = (error) => {
+  if (!error?.response && (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error')) {
+    return 'RindaSeat API is not reachable. Check VITE_API_URL or start the backend service.';
+  }
+
+  return error.response?.data?.message || error.message || 'Sign in failed. Please try again.';
+};
+
 export const GoogleAuthButton = ({ onSuccess, size = 'md' }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuthStore();
@@ -47,8 +55,10 @@ export const GoogleAuthButton = ({ onSuccess, size = 'md' }) => {
         onSuccess(user);
       }
     } catch (error) {
-      console.error('Google auth error:', error);
-      toast.error(error.response?.data?.message || error.message || 'Sign in failed. Please try again.');
+      if (import.meta.env.VITE_DEBUG_AUTH === 'true') {
+        console.error('Google auth error:', error);
+      }
+      toast.error(getAuthErrorMessage(error));
     } finally {
       setIsLoading(false);
     }

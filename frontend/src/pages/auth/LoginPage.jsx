@@ -10,6 +10,14 @@ import { authService } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 
+const getAuthErrorMessage = (error) => {
+  if (!error?.response && (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error')) {
+    return 'RindaSeat API is not reachable. Check VITE_API_URL or start the backend service.';
+  }
+
+  return error.response?.data?.message || error.message || 'Login failed. Please try again.';
+};
+
 export const LoginPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -41,11 +49,10 @@ export const LoginPage = () => {
       toast.success('Login successful');
       navigate(searchParams.get('redirect') || '/dashboard', { replace: true });
     } catch (error) {
-      console.error('Login error:', error);
-      const errorMessage = error.response?.data?.message 
-        || error.message 
-        || 'Login failed. Please try again.';
-      toast.error(errorMessage);
+      if (import.meta.env.VITE_DEBUG_AUTH === 'true') {
+        console.error('Login error:', error);
+      }
+      toast.error(getAuthErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -133,7 +140,7 @@ export const LoginPage = () => {
         {/* Sign Up Link */}
         <p className="text-center text-gray-600 dark:text-gray-400">
           Don&apos;t have an account?{' '}
-          <Link to={`/auth/signup${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect'))}` : ''}`} className="text-primary-600 font-semibold hover:text-primary-700">
+          <Link to={`/signup${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect'))}` : ''}`} className="text-primary-600 font-semibold hover:text-primary-700">
             Sign up
           </Link>
         </p>

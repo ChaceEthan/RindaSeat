@@ -40,7 +40,9 @@ const initializeFirebase = () => {
   try {
     firebaseApp = initializeApp(firebaseConfig);
     firebaseAuth = getAuth(firebaseApp);
-    console.log('[Firebase] Initialized successfully');
+    if (import.meta.env.VITE_DEBUG_FIREBASE === 'true') {
+      console.info('[Firebase] Initialized successfully');
+    }
     return firebaseApp;
   } catch (error) {
     console.error('[Firebase] Initialization failed:', error);

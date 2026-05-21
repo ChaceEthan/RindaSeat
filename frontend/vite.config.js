@@ -11,8 +11,6 @@ const isLocalBackendUrl = (value = '') => (
 
 const normalizeUrl = (value = '') => String(value).replace(/\/+$/, '');
 
-const getDevelopmentSocketUrl = () => 'http://localhost:5000';
-
 const resolveProductionUrl = ({ configuredUrl, fallback }) => {
   if (!configuredUrl || isLocalBackendUrl(configuredUrl)) {
     return fallback;
@@ -24,18 +22,22 @@ const resolveProductionUrl = ({ configuredUrl, fallback }) => {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProduction = mode === 'production';
+  const configuredApiUrl = env.VITE_API_URL || env.VITE_API_BASE_URL;
+  const popupSafeHeaders = {
+    'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+  };
   const apiUrl = normalizeUrl(isProduction
     ? resolveProductionUrl({
-      configuredUrl: env.VITE_API_URL,
+      configuredUrl: configuredApiUrl,
       fallback: PRODUCTION_API_URL,
     })
-    : env.VITE_API_URL || `${getDevelopmentSocketUrl()}/api`);
+    : configuredApiUrl || PRODUCTION_API_URL);
   const socketUrl = normalizeUrl(isProduction
     ? resolveProductionUrl({
       configuredUrl: env.VITE_SOCKET_URL,
       fallback: PRODUCTION_SOCKET_URL,
     })
-    : env.VITE_SOCKET_URL || getDevelopmentSocketUrl());
+    : env.VITE_SOCKET_URL || PRODUCTION_SOCKET_URL);
 
   return {
     plugins: [react()],
@@ -53,11 +55,13 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 3000,
       strictPort: false,
+      headers: popupSafeHeaders,
     },
     preview: {
       host: '0.0.0.0',
       port: 3000,
       strictPort: false,
+      headers: popupSafeHeaders,
     },
     build: {
       outDir: 'dist',
