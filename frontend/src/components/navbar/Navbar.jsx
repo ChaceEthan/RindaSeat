@@ -63,10 +63,10 @@ export const Navbar = ({ onMenuClick }) => {
                 </Link>
               ) : (
                 <>
-                  <Link to="/auth/login" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 transition">
+                  <Link to="/login" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 transition">
                     Login
                   </Link>
-                  <Link to="/auth/signup" className="px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 shadow-sm transition">
+                  <Link to="/signup" className="px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 shadow-sm transition">
                     Sign Up
                   </Link>
                 </>

@@ -15,7 +15,7 @@ export const MainLayout = ({ children }) => {
     ['/about', 'About'],
     ['/contact', 'Contact'],
     ['/faq', 'FAQ'],
-    ...(isAuthenticated ? [['/dashboard', 'Dashboard'], ['/tickets', 'Tickets']] : [['/auth/login', 'Login'], ['/auth/signup', 'Sign Up']]),
+    ...(isAuthenticated ? [['/dashboard', 'Dashboard'], ['/tickets', 'Tickets']] : [['/login', 'Login'], ['/signup', 'Sign Up']]),
   ];
 
   return (

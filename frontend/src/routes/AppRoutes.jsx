@@ -20,7 +20,7 @@ const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
   const location = useLocation();
   const redirect = `${location.pathname}${location.search}`;
-  return isAuthenticated ? children : <Navigate to={`/auth/login?redirect=${encodeURIComponent(redirect)}`} replace />;
+  return isAuthenticated ? children : <Navigate to={`/login?redirect=${encodeURIComponent(redirect)}`} replace />;
 };
 
 export const AppRoutes = () => {
@@ -57,7 +57,23 @@ export const AppRoutes = () => {
           }
         />
         <Route
+          path="/login"
+          element={
+            <MainLayout>
+              <LoginPage />
+            </MainLayout>
+          }
+        />
+        <Route
           path="/auth/signup"
+          element={
+            <MainLayout>
+              <SignupPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/signup"
           element={
             <MainLayout>
               <SignupPage />
@@ -155,6 +171,16 @@ export const AppRoutes = () => {
             <ProtectedRoute>
               <MainLayout>
                 <DashboardPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <DashboardPage initialSection="account" />
               </MainLayout>
             </ProtectedRoute>
           }

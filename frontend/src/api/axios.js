@@ -42,8 +42,8 @@ const clearStoredAuth = () => {
 };
 
 const redirectToLogin = () => {
-  if (window.location.pathname !== '/auth/login') {
-    window.location.href = '/auth/login?expired=true';
+  if (!['/login', '/auth/login'].includes(window.location.pathname)) {
+    window.location.href = '/login?expired=true';
   }
 };
 
