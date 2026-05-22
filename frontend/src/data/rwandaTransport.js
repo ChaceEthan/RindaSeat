@@ -124,8 +124,55 @@ const slugify = (value) => String(value || '')
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/(^-|-$)/g, '');
 
+export const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export const createUuid = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20)
+  ].join('-');
+};
+
+export const RWANDA_MAJOR_TRANSPORT_HUBS = [
+  { id: 'remera', name: 'Remera Bus Terminal', city: 'Kigali', district: 'Gasabo', province: 'Kigali City', country: 'Rwanda', latitude: -1.9545, longitude: 30.1121, hubType: 'intercity' },
+  { id: 'sonatubes', name: 'Sonatubes Roadside Pickup', city: 'Kigali', district: 'Kicukiro', province: 'Kigali City', country: 'Rwanda', latitude: -1.9607, longitude: 30.1017, hubType: 'pickup' },
+  { id: 'giporoso', name: 'Giporoso Transit Stop', city: 'Kigali', district: 'Gasabo', province: 'Kigali City', country: 'Rwanda', latitude: -1.9486, longitude: 30.1269, hubType: 'pickup' },
+  { id: 'kicukiro-hub', name: 'Kicukiro Bus Terminal', city: 'Kigali', district: 'Kicukiro', province: 'Kigali City', country: 'Rwanda', latitude: -1.9706, longitude: 30.1044, hubType: 'city-terminal' },
+  { id: 'nyamata', name: 'Nyamata Bus Park', city: 'Nyamata', district: 'Bugesera', province: 'Eastern Province', country: 'Rwanda', latitude: -2.1410, longitude: 30.1127, hubType: 'district-terminal' },
+  { id: 'rwamagana-main', name: 'Rwamagana Main Station', city: 'Rwamagana', district: 'Rwamagana', province: 'Eastern Province', country: 'Rwanda', latitude: -1.9487, longitude: 30.4347, hubType: 'district-terminal' },
+  { id: 'gicumbi-byumba', name: 'Gicumbi Byumba Station', city: 'Gicumbi', district: 'Gicumbi', province: 'Northern Province', country: 'Rwanda', latitude: -1.5786, longitude: 30.0675, hubType: 'district-terminal' },
+  { id: 'karongi-kibuye', name: 'Karongi Kibuye Station', city: 'Karongi', district: 'Karongi', province: 'Western Province', country: 'Rwanda', latitude: -2.0597, longitude: 29.3478, hubType: 'lake-corridor' },
+  { id: 'huye-main', name: 'Huye Main Station', city: 'Huye', district: 'Huye', province: 'Southern Province', country: 'Rwanda', latitude: -2.5967, longitude: 29.7394, hubType: 'district-terminal' },
+  { id: 'musanze-main', name: 'Musanze Bus Station', city: 'Musanze', district: 'Musanze', province: 'Northern Province', country: 'Rwanda', latitude: -1.4998, longitude: 29.6349, hubType: 'district-terminal' },
+  { id: 'rubavu-main', name: 'Rubavu Taxi Park', city: 'Rubavu', district: 'Rubavu', province: 'Western Province', country: 'Rwanda', latitude: -1.6818, longitude: 29.3134, hubType: 'border-corridor' },
+  { id: 'rusizi-main', name: 'Rusizi Bus Station', city: 'Rusizi', district: 'Rusizi', province: 'Western Province', country: 'Rwanda', latitude: -2.4833, longitude: 28.9075, hubType: 'border-corridor' },
+  { id: 'nyanza-main', name: 'Nyanza Station', city: 'Nyanza', district: 'Nyanza', province: 'Southern Province', country: 'Rwanda', latitude: -2.3519, longitude: 29.7509, hubType: 'heritage-corridor' },
+];
+
 export const RWANDA_STATIONS = [
   KIGALI_HUB,
+  ...RWANDA_MAJOR_TRANSPORT_HUBS,
   ...RWANDA_DISTRICTS.map((district) => ({
     id: slugify(district.name),
     name: district.stationName,
@@ -357,6 +404,23 @@ const hashString = (value) => {
   return Math.abs(hash);
 };
 
+const createStableTripUuid = (value) => {
+  const hex = Array.from({ length: 8 }, (_, index) => (
+    hashString(`${value}:${index}`).toString(16).padStart(8, '0')
+  )).join('').slice(0, 32).split('');
+  hex[12] = '4';
+  hex[16] = ['8', '9', 'a', 'b'][hashString(value) % 4];
+  const text = hex.join('');
+
+  return [
+    text.slice(0, 8),
+    text.slice(8, 12),
+    text.slice(12, 16),
+    text.slice(16, 20),
+    text.slice(20)
+  ].join('-');
+};
+
 const toIsoDate = (value = new Date()) => {
   const date = typeof value === 'string' ? new Date(`${value}T00:00:00`) : new Date(value);
   const year = date.getFullYear();
@@ -543,9 +607,11 @@ const buildTripForRoute = ({ from, to }, time, date, scheduleIndex, routeIndex) 
   const routeStops = getRouteStops(from, to, origin, destination);
   const borderCrossings = getBorderCrossings(origin, destination);
   const status = seatsLeft <= 7 ? 'selling-fast' : scheduleIndex % 4 === 0 ? 'boarding' : 'scheduled';
+  const legacyId = `rw-${dateKey}-${slugify(from)}-${slugify(to)}-${time.replace(':', '')}-${scheduleIndex}`;
 
   return {
-    id: `rw-${dateKey}-${slugify(from)}-${slugify(to)}-${time.replace(':', '')}-${scheduleIndex}`,
+    id: createStableTripUuid(`rindaseat:trip:${legacyId}`),
+    legacyId,
     routeId: `route-${slugify(from)}-${slugify(to)}`,
     departure: from,
     arrival: to,
@@ -627,10 +693,111 @@ export const searchRwandaTrips = (filters = {}) => {
     .slice(0, limit);
 };
 
+const getStationSearchText = (station) => [
+  station.name,
+  station.city,
+  station.district,
+  station.province,
+  station.country,
+  station.hubType
+].filter(Boolean).join(' ').toLowerCase();
+
+export const getRwandaStationHierarchy = () => {
+  const provinces = RWANDA_STATIONS
+    .filter((station) => station.country === 'Rwanda')
+    .reduce((provinceGroups, station) => {
+      const province = provinceGroups[station.province] || {
+        name: station.province,
+        districts: {}
+      };
+      const district = province.districts[station.district] || {
+        name: station.district,
+        city: station.city,
+        stations: []
+      };
+
+      district.stations.push(station);
+      province.districts[station.district] = district;
+      provinceGroups[station.province] = province;
+      return provinceGroups;
+    }, {});
+
+  return Object.values(provinces).map((province) => ({
+    ...province,
+    districts: Object.values(province.districts).map((district) => ({
+      ...district,
+      stations: district.stations.sort((a, b) => a.name.localeCompare(b.name))
+    })).sort((a, b) => a.name.localeCompare(b.name))
+  })).sort((a, b) => a.name.localeCompare(b.name));
+};
+
+export const searchRwandaLocations = (query = '') => {
+  const normalized = String(query || '').trim().toLowerCase();
+
+  if (!normalized) {
+    return getRwandaStationHierarchy();
+  }
+
+  return RWANDA_STATIONS
+    .filter((station) => getStationSearchText(station).includes(normalized))
+    .sort((a, b) => a.city.localeCompare(b.city) || a.name.localeCompare(b.name));
+};
+
+export const getStationsForLocation = (location = '') => {
+  const normalized = String(location || '').trim().toLowerCase();
+
+  return RWANDA_STATIONS
+    .filter((station) => (
+      station.city.toLowerCase() === normalized
+      || station.district.toLowerCase() === normalized
+      || station.province.toLowerCase() === normalized
+      || station.name.toLowerCase().includes(normalized)
+    ))
+    .sort((a, b) => a.name.localeCompare(b.name));
+};
+
+export const getCompaniesForStation = (stationIdOrName = '') => {
+  const station = RWANDA_STATIONS.find((item) => (
+    item.id === stationIdOrName
+    || item.name === stationIdOrName
+    || item.city === stationIdOrName
+  ));
+  const seed = hashString(station?.id || stationIdOrName || 'rwanda');
+
+  return RWANDA_OPERATORS
+    .filter((operator, index) => station?.city === 'Kigali' || ((seed + index) % 3 !== 0))
+    .slice(0, station?.city === 'Kigali' ? 8 : 5);
+};
+
+export const getAvailableBusesForStation = (stationIdOrName = '') => (
+  getCompaniesForStation(stationIdOrName).flatMap((operator, operatorIndex) => (
+    operator.busTypes.slice(0, 2).map((type, busIndex) => {
+      const capacity = BUS_CAPACITY[type] || BUS_CAPACITY['Standard Bus'];
+      return {
+        id: createStableTripUuid(`rindaseat:station-bus:${stationIdOrName}:${operator.id}:${type}:${busIndex}`),
+        companyId: operator.id,
+        companyName: operator.name,
+        type,
+        plateNumber: PLATE_NUMBERS[(operatorIndex * 3 + busIndex) % PLATE_NUMBERS.length],
+        seatsLeft: Math.max(3, capacity.totalSeats - (8 + operatorIndex + busIndex)),
+        totalSeats: capacity.totalSeats,
+        status: busIndex === 0 ? 'boarding' : 'scheduled'
+      };
+    })
+  ))
+);
+
 export const getRwandaTripById = (tripId) => {
   const [, dateKey] = String(tripId || '').match(/^rw-(\d{8})-/) || [];
-  const date = parseDateKey(dateKey) || toIsoDate(new Date());
-  return generateRwandaTrips({ date }).find((trip) => trip.id === tripId) || null;
+  const today = new Date();
+  const candidateDates = dateKey
+    ? [parseDateKey(dateKey)]
+    : Array.from({ length: 33 }, (_, index) => toIsoDate(addMinutes(today, (index - 2) * 24 * 60)));
+
+  return candidateDates
+    .filter(Boolean)
+    .flatMap((date) => generateRwandaTrips({ date }))
+    .find((trip) => trip.id === tripId || trip.legacyId === tripId) || null;
 };
 
 export const getRwandaSeatInfo = (tripId) => {
@@ -651,12 +818,14 @@ export const getRwandaSeatInfo = (tripId) => {
     columns,
     totalSeats,
     unavailableSeats: Array.from(new Set(unavailableSeats)),
+    reservedSeats: Array.from(new Set(unavailableSeats)).slice(0, Math.ceil(seatCount / 3)),
     lockedSeats: Array.from(new Set(unavailableSeats)).slice(0, Math.ceil(seatCount / 2)),
   };
 };
 
 export const getRwandaTripMeta = () => ({
   stations: RWANDA_STATIONS,
+  stationHierarchy: getRwandaStationHierarchy(),
   companies: RWANDA_OPERATORS.map((operator) => ({
     id: operator.id,
     name: operator.name,
@@ -774,7 +943,9 @@ export const createDemoBooking = ({ tripId, seats = [], passengerInfo = {} }) =>
   const bookingNumber = `RS-${Date.now().toString().slice(-6)}`;
   const normalizedSeats = seats.map((seat) => (typeof seat === 'string' ? seat : seat.number)).filter(Boolean);
   const booking = {
-    id: `demo-${Date.now()}`,
+    id: createUuid(),
+    source: 'rwanda-demo-fallback',
+    isDemoBooking: true,
     bookingReference: bookingNumber,
     tripId,
     departure: trip?.departure || 'Kigali',
@@ -821,7 +992,9 @@ export const dashboardFallbackBookings = () => {
 
   const sampleTrips = searchRwandaTrips({ from: 'Kigali', limit: 3 });
   return sampleTrips.map((trip, index) => ({
-    id: `sample-${trip.id}`,
+    id: createStableTripUuid(`rindaseat:sample-booking:${trip.id}`),
+    source: 'rwanda-demo-fallback',
+    isDemoBooking: true,
     bookingReference: `RS-SAMPLE-${index + 1}`,
     tripId: trip.id,
     departure: trip.departure,

@@ -55,6 +55,8 @@ export const PaymentsPage = () => {
         amount: booking.totalPrice || totalPrice,
         method: paymentMethod,
         phoneNumber: paymentMethod === 'momo' ? phoneNumber : undefined,
+        source: booking.source,
+        isDemoBooking: booking.isDemoBooking,
       };
 
       await paymentService.initiatePayment(paymentData);

@@ -18,6 +18,14 @@ const getAllowedOrigins = () => {
     ...splitOrigins(process.env.FRONTEND_URL),
     ...splitOrigins(process.env.CORS_ORIGINS)
   ];
+  const localDevOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174'
+  ];
 
   if (!isProductionRuntime() && (configuredOrigins.length === 0 || configuredOrigins.includes('*'))) {
     return '*';
@@ -25,6 +33,7 @@ const getAllowedOrigins = () => {
 
   return [...new Set([
     ...configuredOrigins.filter((origin) => origin !== '*'),
+    ...(!isProductionRuntime() ? localDevOrigins : []),
     'https://rindaseat.vercel.app',
     'https://rinda-seat.vercel.app'
   ])];
@@ -74,9 +83,53 @@ const initializeSocket = (httpServer) => {
       }
     });
 
+    socket.on('joinDriverTrip', (tripId) => {
+      if (tripId) {
+        socket.join(`trip:${tripId}`);
+        socket.join(`driver:${tripId}`);
+      }
+    });
+
     socket.on('leaveTripRoom', (tripId) => {
       if (tripId) {
         socket.leave(`trip:${tripId}`);
+        socket.leave(`driver:${tripId}`);
+      }
+    });
+
+    socket.on('driver-location', (payload = {}) => {
+      if (payload.tripId) {
+        io.to(`trip:${payload.tripId}`).emit('driver-location', {
+          ...payload,
+          updatedAt: payload.updatedAt || new Date().toISOString()
+        });
+      }
+    });
+
+    socket.on('passenger-pickup-marker', (payload = {}) => {
+      if (payload.tripId) {
+        io.to(`trip:${payload.tripId}`).emit('passenger-pickup-marker', {
+          ...payload,
+          updatedAt: payload.updatedAt || new Date().toISOString()
+        });
+      }
+    });
+
+    socket.on('seat-inventory', (payload = {}) => {
+      if (payload.tripId) {
+        io.to(`trip:${payload.tripId}`).emit('seat-inventory', {
+          ...payload,
+          updatedAt: payload.updatedAt || new Date().toISOString()
+        });
+      }
+    });
+
+    socket.on('boarding-confirmation', (payload = {}) => {
+      if (payload.tripId) {
+        io.to(`trip:${payload.tripId}`).emit('boarding-confirmation', {
+          ...payload,
+          updatedAt: payload.updatedAt || new Date().toISOString()
+        });
       }
     });
 

@@ -84,9 +84,13 @@ export const HomePage = () => {
   return (
     <div className="min-h-screen overflow-x-hidden bg-white text-gray-950 dark:bg-gray-950 dark:text-white">
       <section className="relative isolate overflow-hidden bg-gray-950 text-white">
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(15,23,42,0.95),rgba(6,78,59,0.72),rgba(30,41,59,0.95))]" />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.045)_1px,transparent_1px)] bg-[size:64px_64px] opacity-50" />
-        <div className="absolute inset-0 backdrop-blur-[1px]" />
+        <img
+          src="/rwanda-transport-hero.png"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.92),rgba(15,23,42,0.74)_48%,rgba(15,23,42,0.42))]" />
+        <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-white via-white/70 to-transparent dark:from-gray-950 dark:via-gray-950/70" />
 
         <motion.div
           variants={containerVariants}
@@ -96,10 +100,10 @@ export const HomePage = () => {
         >
           <div>
             <motion.div variants={itemVariants} className="relative mb-8 flex justify-center lg:justify-start">
-              <h1 className="absolute -top-9 left-1/2 w-[min(920px,95vw)] -translate-x-1/2 select-none text-center text-5xl font-black leading-none text-white/10 sm:text-7xl lg:left-0 lg:translate-x-0 lg:text-left lg:text-8xl">
+              <h1 className="absolute -top-9 left-1/2 w-[min(920px,95vw)] -translate-x-1/2 select-none text-center text-5xl font-black leading-none text-white/15 sm:text-7xl lg:left-0 lg:translate-x-0 lg:text-left lg:text-8xl">
                 Book Rwanda Bus Tickets
               </h1>
-              <div className="relative z-10 max-w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-center shadow-2xl shadow-emerald-950/40 backdrop-blur-xl sm:px-5">
+              <div className="relative z-10 max-w-full rounded-full border border-white/25 bg-white/15 px-4 py-2 text-center shadow-2xl shadow-slate-950/40 backdrop-blur-xl sm:px-5">
                 <span className="text-[11px] font-bold uppercase text-emerald-100 sm:text-sm">
                   RINDASEAT RWANDA TRANSPORT PLATFORM
                 </span>
@@ -131,6 +135,9 @@ export const HomePage = () => {
               </Button>
               <Button variant="secondary" size="lg" onClick={() => navigate('/tickets')} className="px-8">
                 View QR Tickets
+              </Button>
+              <Button variant="outline" size="lg" onClick={() => navigate('/driver')} className="border-white/70 px-8 text-white hover:bg-white/10">
+                Driver View
               </Button>
             </motion.div>
           </div>

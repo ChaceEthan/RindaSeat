@@ -97,7 +97,9 @@ export const BookingSeatPage = () => {
                   columns: seatInfo.columns || trip.bus?.columns,
                 }}
                 selectedSeats={selectedSeats}
-                lockedSeats={(seatInfo.lockedSeats || seatInfo.unavailableSeats || []).map((number) => ({ id: number, number }))}
+                lockedSeats={(seatInfo.lockedSeats || []).map((number) => ({ id: number, number }))}
+                unavailableSeats={(seatInfo.unavailableSeats || []).map((number) => ({ id: number, number }))}
+                reservedSeats={(seatInfo.reservedSeats || []).map((number) => ({ id: number, number }))}
                 onSeatSelect={handleSeatSelect}
               />
             </Card>

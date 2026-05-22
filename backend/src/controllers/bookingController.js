@@ -3,6 +3,7 @@ const { pool, query } = require('../config/db');
 const { generateBookingQrCode } = require('../services/qrService');
 const { queueBookingConfirmationNotifications } = require('../services/bookingNotificationService');
 const { lockSeat, releaseSeat } = require('../services/seatLockService');
+const { isUuid } = require('../utils/uuid');
 
 const health = (req, res) => {
   res.json({
@@ -126,10 +127,24 @@ const createBooking = async (req, res, next) => {
     const userId = req.user.id;
     const seats = normalizeSeatInput(req.body);
 
+    if (!isUuid(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
     if (!tripId || seats.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'tripId and at least one seat are required'
+      });
+    }
+
+    if (!isUuid(tripId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'tripId must be a valid UUID'
       });
     }
 
@@ -286,6 +301,13 @@ const createBooking = async (req, res, next) => {
 
 const listUserBookings = async (req, res, next) => {
   try {
+    if (!isUuid(req.user.id)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
     const result = await query(
       `${bookingSelect()}
        WHERE bookings.user_id = $1
@@ -308,6 +330,20 @@ const listUserBookings = async (req, res, next) => {
 
 const getBooking = async (req, res, next) => {
   try {
+    if (!isUuid(req.user.id)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    if (!isUuid(req.params.id)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
     const result = await query(
       `${bookingSelect()}
        WHERE bookings.id = $1 AND bookings.user_id = $2
@@ -337,6 +373,20 @@ const cancelBooking = async (req, res, next) => {
   const client = await pool.connect();
 
   try {
+    if (!isUuid(req.user.id)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    if (!isUuid(req.params.id)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Active booking not found'
+      });
+    }
+
     await client.query('BEGIN');
 
     const result = await client.query(

@@ -1,5 +1,6 @@
 // @ts-nocheck
 const { v4: uuidv4 } = require('uuid');
+const { isUuid } = require('../utils/uuid');
 
 const PLACEHOLDER_PATTERN = /^(YOUR_|REPLACE|CHANGE_ME|TODO)|_HERE$/i;
 
@@ -43,11 +44,6 @@ const isPaymentProviderConfigured = (method) => {
   return true;
 };
 
-const validateUUID = (uuid) => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid);
-};
-
 const initializePayment = async ({ bookingId, amount, method }) => {
   const providerConfigured = isPaymentProviderConfigured(method);
 
@@ -55,7 +51,7 @@ const initializePayment = async ({ bookingId, amount, method }) => {
     return paymentProviderNotConfigured();
   }
 
-  if (!validateUUID(bookingId)) {
+  if (!isUuid(bookingId)) {
     return {
       success: false,
       message: 'Invalid booking ID format'

@@ -2,6 +2,7 @@
 const { query } = require('../config/db');
 const { initializePayment, verifyPayment: verifyPaymentProvider } = require('../services/paymentService');
 const { queueBookingConfirmationNotifications } = require('../services/bookingNotificationService');
+const { isUuid } = require('../utils/uuid');
 
 const health = (req, res) => {
   res.json({
@@ -31,6 +32,20 @@ const createPayment = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'bookingId and amount are required'
+      });
+    }
+
+    if (!isUuid(req.user.id)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    if (!isUuid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'bookingId must be a valid UUID'
       });
     }
 
@@ -149,6 +164,23 @@ const verifyPayment = async (req, res, next) => {
 
 const getPaymentStatus = async (req, res, next) => {
   try {
+    if (!isUuid(req.user.id)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    if (!isUuid(req.params.bookingId)) {
+      return res.json({
+        success: true,
+        data: {
+          bookingId: req.params.bookingId,
+          status: 'pending'
+        }
+      });
+    }
+
     const result = await query(
       `SELECT payments.id, payments.booking_id, payments.amount, payments.payment_method, payments.method, payments.transaction_id, payments.payment_status, payments.status, payments.paid_at, payments.created_at
        FROM payments

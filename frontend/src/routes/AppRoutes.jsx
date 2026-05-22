@@ -12,6 +12,7 @@ import PaymentsPage from '../pages/payments/PaymentsPage';
 import TicketsPage from '../pages/tickets/TicketsPage';
 import DashboardPage from '../pages/dashboard/DashboardPage';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
+import DriverDashboardPage from '../pages/driver/DriverDashboardPage';
 import { AboutPage, ContactPage, FAQPage, HelpCenterPage, PrivacyPage, TermsPage, CookiesPage } from '../pages/public/PublicPages';
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
@@ -155,6 +156,26 @@ export const AppRoutes = () => {
         />
 
         {/* Dashboard Routes */}
+        <Route
+          path="/driver"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <DriverDashboardPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/driver/:tripId"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <DriverDashboardPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/bookings"
           element={

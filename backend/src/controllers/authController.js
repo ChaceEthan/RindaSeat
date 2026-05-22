@@ -248,11 +248,19 @@ const googleAuth = async (req, res, next) => {
 
     const { email, name, picture, email_verified: emailVerified } = decodedToken;
     const normalizedEmail = normalizeEmail(email);
+    const signInProvider = decodedToken.firebase?.sign_in_provider;
 
     if (!normalizedEmail) {
       return res.status(400).json({
         success: false,
         message: 'Email not available from Google account'
+      });
+    }
+
+    if (signInProvider && signInProvider !== 'google.com') {
+      return res.status(401).json({
+        success: false,
+        message: 'Firebase token is not from Google Sign-In'
       });
     }
 

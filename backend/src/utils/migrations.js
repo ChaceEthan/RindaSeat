@@ -643,6 +643,14 @@ const seedStations = async (client) => {
       VALUES
         ('Nyabugogo Bus Park', 'Nyarugenge', 'Kigali', 'Kigali City', -1.939200, 30.044600),
         ('Kimironko Taxi Park', 'Gasabo', 'Kigali', 'Kigali City', -1.935300, 30.130300),
+        ('Remera Bus Terminal', 'Gasabo', 'Kigali', 'Kigali City', -1.954500, 30.112100),
+        ('Sonatubes Roadside Pickup', 'Kicukiro', 'Kigali', 'Kigali City', -1.960700, 30.101700),
+        ('Giporoso Transit Stop', 'Gasabo', 'Kigali', 'Kigali City', -1.948600, 30.126900),
+        ('Kicukiro Bus Terminal', 'Kicukiro', 'Kigali', 'Kigali City', -1.970600, 30.104400),
+        ('Nyamata Bus Park', 'Bugesera', 'Nyamata', 'Eastern Province', -2.141000, 30.112700),
+        ('Rwamagana Main Station', 'Rwamagana', 'Rwamagana', 'Eastern Province', -1.948700, 30.434700),
+        ('Gicumbi Byumba Station', 'Gicumbi', 'Gicumbi', 'Northern Province', -1.578600, 30.067500),
+        ('Karongi Kibuye Station', 'Karongi', 'Karongi', 'Western Province', -2.059700, 29.347800),
         ('Huye Main Station', 'Huye', 'Huye', 'Southern Province', -2.596700, 29.739400),
         ('Musanze Bus Station', 'Musanze', 'Musanze', 'Northern Province', -1.499800, 29.634900),
         ('Rubavu Taxi Park', 'Rubavu', 'Rubavu', 'Western Province', -1.681800, 29.313400),
@@ -653,7 +661,7 @@ const seedStations = async (client) => {
     )
     INSERT INTO stations (id, station_name, name, district, city, province, latitude, longitude)
     SELECT
-      uuid_generate_v5(uuid_ns_url(), 'rindaseat:station:' || city),
+      uuid_generate_v5(uuid_ns_url(), 'rindaseat:station:' || lower(station_name)),
       station_name,
       station_name,
       district,

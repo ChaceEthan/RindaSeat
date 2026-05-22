@@ -9,6 +9,19 @@ const {
 
 let firebaseApp = null;
 let firebaseInitError = null;
+const warnedMessages = new Set();
+
+const warnOnce = (logger, message) => {
+  if (warnedMessages.has(message)) {
+    return;
+  }
+
+  warnedMessages.add(message);
+
+  if (logger && typeof logger.warn === 'function') {
+    logger.warn(message);
+  }
+};
 
 const parseServiceAccountJson = (logger = console) => {
   const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
@@ -27,9 +40,7 @@ const parseServiceAccountJson = (logger = console) => {
       privateKey: normalizeFirebasePrivateKey(parsed.private_key || parsed.privateKey)
     };
   } catch (error) {
-    if (logger && typeof logger.warn === 'function') {
-      logger.warn('[FIREBASE WARNING] Service account JSON could not be parsed');
-    }
+    warnOnce(logger, '[FIREBASE WARNING] Service account JSON could not be parsed');
 
     return null;
   }
@@ -52,15 +63,13 @@ const getFirebaseConfig = (logger = console) => {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 
   if (!projectId || !clientEmail || !valid) {
-    if (logger && typeof logger.warn === 'function') {
-      const missing = [];
+    const missing = [];
 
-      if (!projectId) missing.push('FIREBASE_PROJECT_ID');
-      if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL');
-      if (!valid) missing.push('FIREBASE_PRIVATE_KEY');
+    if (!projectId) missing.push('FIREBASE_PROJECT_ID');
+    if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL');
+    if (!valid) missing.push('FIREBASE_PRIVATE_KEY');
 
-      logger.warn(`[FIREBASE WARNING] Missing or invalid Admin SDK config: ${missing.join(', ')}`);
-    }
+    warnOnce(logger, `[FIREBASE WARNING] Missing or invalid Admin SDK config: ${missing.join(', ')}`);
 
     return null;
   }
@@ -108,9 +117,7 @@ const initializeFirebase = (logger = console) => {
       return firebaseApp;
     }
     
-    if (logger && typeof logger.warn === 'function') {
-      logger.warn(`[FIREBASE WARNING] Initialization failed: ${error.message}`);
-    }
+    warnOnce(logger, `[FIREBASE WARNING] Initialization failed: ${error.message}`);
     firebaseInitError = error;
     return null;
   }

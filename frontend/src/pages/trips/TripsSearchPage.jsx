@@ -7,7 +7,13 @@ import { TextInput, Select } from '../../components/forms/FormInputs';
 import { TripCard } from '../../components/cards/Card';
 import { Skeleton } from '../../components/loaders/Loaders';
 import { tripService } from '../../services/api';
-import { RWANDA_DISTRICTS, SCHEDULE_TIMES } from '../../data/rwandaTransport';
+import {
+  RWANDA_DISTRICTS,
+  SCHEDULE_TIMES,
+  getAvailableBusesForStation,
+  getCompaniesForStation,
+  getStationsForLocation,
+} from '../../data/rwandaTransport';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 10;
@@ -55,6 +61,8 @@ export const TripsSearchPage = () => {
   const [meta, setMeta] = useState({ stations: [], companies: [], busTypes: [] });
   const [sortBy, setSortBy] = useState(queryParams.get('sortBy') || 'time');
   const [page, setPage] = useState(Number(queryParams.get('page') || 1));
+  const [locationQuery, setLocationQuery] = useState(queryParams.get('from') || '');
+  const [selectedStationId, setSelectedStationId] = useState('');
   const [filters, setFilters] = useState({
     from: queryParams.get('from') || '',
     to: queryParams.get('to') || '',
@@ -70,6 +78,10 @@ export const TripsSearchPage = () => {
     .sort((a, b) => a.label.localeCompare(b.label));
   const companyOptions = meta.companies.map((company) => ({ label: company.name, value: company.id }));
   const busTypeOptions = meta.busTypes.map((busType) => ({ label: busType, value: busType }));
+  const stationMatches = useMemo(() => getStationsForLocation(locationQuery).slice(0, 12), [locationQuery]);
+  const selectedStation = stationMatches.find((station) => station.id === selectedStationId) || stationMatches[0];
+  const stationCompanies = useMemo(() => getCompaniesForStation(selectedStation?.id || locationQuery), [locationQuery, selectedStation?.id]);
+  const stationBuses = useMemo(() => getAvailableBusesForStation(selectedStation?.id || locationQuery).slice(0, 4), [locationQuery, selectedStation?.id]);
 
   const filteredTrips = useMemo(() => {
     const rows = filters.departureTime
@@ -220,6 +232,24 @@ export const TripsSearchPage = () => {
               </div>
               <div className="space-y-4">
                 <Select label="From" name="from" value={filters.from} onChange={handleFilterChange} options={uniqueStationOptions} />
+                <TextInput
+                  label="Province or City"
+                  value={locationQuery}
+                  onChange={(event) => setLocationQuery(event.target.value)}
+                  placeholder="Kigali, Eastern Province, Huye"
+                />
+                <Select
+                  label="Station"
+                  value={selectedStation?.id || ''}
+                  onChange={(event) => {
+                    const station = stationMatches.find((item) => item.id === event.target.value);
+                    setSelectedStationId(event.target.value);
+                    if (station) {
+                      setFilters((current) => ({ ...current, from: station.city }));
+                    }
+                  }}
+                  options={stationMatches.map((station) => ({ label: `${station.name} - ${station.district}`, value: station.id }))}
+                />
                 <Select label="To" name="to" value={filters.to} onChange={handleFilterChange} options={uniqueStationOptions} />
                 <TextInput label="Date" type="date" name="date" value={filters.date} onChange={handleFilterChange} />
                 <Select label="Departure Time" name="departureTime" value={filters.departureTime} onChange={handleFilterChange} options={SCHEDULE_TIMES.map((time) => ({ label: time, value: time }))} />
@@ -241,6 +271,33 @@ export const TripsSearchPage = () => {
                 <Button onClick={() => handleSearch()} className="w-full" disabled={isLoading}>
                   {isLoading ? 'Searching...' : 'Apply Filters'}
                 </Button>
+                {selectedStation && (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+                    <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Station operators</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {stationCompanies.slice(0, 5).map((operator) => (
+                        <button
+                          type="button"
+                          key={operator.id}
+                          onClick={() => setFilters((current) => ({ ...current, company: operator.id }))}
+                          className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:text-primary-700 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700"
+                        >
+                          {operator.name}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {stationBuses.map((bus) => (
+                        <div key={bus.id} className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-xs dark:bg-gray-800">
+                          <span className="font-medium text-gray-800 dark:text-gray-100">{bus.companyName} {bus.type}</span>
+                          <span className={bus.status === 'boarding' ? 'font-bold text-emerald-600' : 'font-semibold text-gray-500'}>
+                            {bus.seatsLeft} seats
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </motion.aside>

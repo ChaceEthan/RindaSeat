@@ -9,11 +9,20 @@ import {
   getRwandaSeatInfo,
   getRwandaTripById,
   getRwandaTripMeta,
+  getLiveTrackingSnapshot,
+  getRoadsidePickupOptions,
   searchRwandaTrips,
+  UUID_V4_PATTERN,
 } from '../data/rwandaTransport';
 
-const isDemoTripId = (id) => String(id || '').startsWith('rw-');
-const isDemoBookingId = (id) => String(id || '').startsWith('demo-') || String(id || '').startsWith('sample-');
+const isUuid = (id) => UUID_V4_PATTERN.test(String(id || ''));
+const getLocalTrip = (id) => getRwandaTripById(id);
+const isDemoTripId = (id) => String(id || '').startsWith('rw-') || Boolean(getLocalTrip(id));
+const isDemoBookingId = (id) => (
+  String(id || '').startsWith('demo-')
+  || String(id || '').startsWith('sample-')
+  || Boolean(getDemoBooking(id))
+);
 const canUseFallback = (error) => !error?.response || error.response.status >= 500 || error.response.status === 404;
 
 const normalizeTripList = (payload) => payload?.trips || payload?.data || [];
@@ -35,6 +44,7 @@ const mergeTripMeta = (primaryMeta = {}, fallbackMeta = getRwandaTripMeta()) => 
 
   return {
     stations: uniqueBy([...(primaryMeta.stations || []), ...fallbackMeta.stations], stationKey),
+    stationHierarchy: primaryMeta.stationHierarchy || fallbackMeta.stationHierarchy || [],
     companies: uniqueBy([...(primaryMeta.companies || []), ...fallbackMeta.companies], companyKey),
     busTypes: Array.from(new Set([...(primaryMeta.busTypes || []), ...fallbackMeta.busTypes])),
   };
@@ -123,13 +133,20 @@ export const tripService = {
   },
 
   async getTripById(id) {
-    if (isDemoTripId(id)) {
-      const trip = getRwandaTripById(id);
+    const localTrip = getLocalTrip(id);
+    if (localTrip) {
+      const trip = localTrip;
       return { success: Boolean(trip), trip, data: trip };
     }
 
-    const response = await api.get(`/trips/${id}`);
-    return response.data;
+    try {
+      const response = await api.get(`/trips/${id}`);
+      return response.data;
+    } catch (error) {
+      if (!canUseFallback(error)) throw error;
+      const trip = getLocalTrip(id);
+      return { success: Boolean(trip), trip, data: trip, source: 'rwanda-demo-fallback' };
+    }
   },
 
   async getTripsByCompany(companyId) {
@@ -154,6 +171,11 @@ export const tripService = {
 
 export const bookingService = {
   async createBooking(bookingData) {
+    if (isDemoTripId(bookingData?.tripId) || !isUuid(bookingData?.tripId)) {
+      const booking = createDemoBooking(bookingData);
+      return { success: true, booking, data: booking, source: 'rwanda-demo-fallback' };
+    }
+
     try {
       const response = await api.post('/bookings', bookingData);
       return response.data;
@@ -165,8 +187,9 @@ export const bookingService = {
   },
 
   async getBooking(id) {
-    if (isDemoBookingId(id)) {
-      const booking = getDemoBooking(id);
+    const demoBooking = getDemoBooking(id);
+    if (demoBooking || isDemoBookingId(id)) {
+      const booking = demoBooking;
       return { success: Boolean(booking), booking, data: booking };
     }
 
@@ -204,6 +227,19 @@ export const bookingService = {
 
 export const paymentService = {
   async initiatePayment(paymentData) {
+    if (
+      paymentData?.source === 'rwanda-demo-fallback'
+      || paymentData?.isDemoBooking
+      || isDemoBookingId(paymentData?.bookingId)
+      || !isUuid(paymentData?.bookingId)
+    ) {
+      const booking = confirmDemoPayment({
+        bookingId: paymentData?.bookingId,
+        method: paymentData?.method,
+      });
+      return { success: true, booking, data: booking, source: 'rwanda-demo-fallback' };
+    }
+
     try {
       const response = await api.post('/payments/initiate', paymentData);
       return response.data;
@@ -223,6 +259,11 @@ export const paymentService = {
   },
 
   async getPaymentStatus(bookingId) {
+    if (isDemoBookingId(bookingId) || !isUuid(bookingId)) {
+      const booking = getDemoBooking(bookingId);
+      return { success: true, data: { bookingId, status: booking?.paymentStatus || 'pending' } };
+    }
+
     const response = await api.get(`/payments/status/${bookingId}`);
     return response.data;
   },
@@ -241,8 +282,9 @@ export const ticketService = {
   },
 
   async getTicket(id) {
-    if (isDemoBookingId(id)) {
-      const booking = getDemoBooking(id);
+    const demoBooking = getDemoBooking(id);
+    if (demoBooking || isDemoBookingId(id)) {
+      const booking = demoBooking;
       return { success: Boolean(booking), booking, data: booking };
     }
 
@@ -256,6 +298,65 @@ export const ticketService = {
       }
       throw error;
     }
+  },
+};
+
+export const trackingService = {
+  async getTripTracking(tripId) {
+    if (isDemoTripId(tripId)) {
+      const trip = getLocalTrip(tripId);
+      const tracking = getLiveTrackingSnapshot(trip);
+      return { success: true, tracking, data: tracking, source: 'rwanda-demo-fallback' };
+    }
+
+    const response = await api.get(`/trips/${tripId}/tracking`);
+    return response.data;
+  },
+
+  async updateDriverLocation(tripId, payload) {
+    const response = await api.post(`/trips/${tripId}/location`, payload);
+    return response.data;
+  },
+
+  async sharePassengerLocation(tripId, payload) {
+    const response = await api.post(`/trips/${tripId}/passenger-location`, payload);
+    return response.data;
+  },
+
+  async getDriverDashboard(tripId) {
+    if (isDemoTripId(tripId)) {
+      const trip = getLocalTrip(tripId);
+      const tracking = getLiveTrackingSnapshot(trip);
+      const passengerMarkers = getRoadsidePickupOptions(trip).slice(0, 4).map((point, index) => ({
+        id: point.id,
+        passengerName: index % 2 === 0 ? 'Pickup passenger' : 'Pending passenger',
+        pickupPoint: point.name,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        status: index === 0 ? 'boarded' : 'waiting',
+        seatsRequested: 1,
+      }));
+      const dashboard = {
+        tripId,
+        tracking,
+        passengerMarkers,
+        pickupIndicators: passengerMarkers.map((marker) => ({
+          ...marker,
+          status: marker.status === 'boarded' ? 'green' : 'red',
+        })),
+        occupancy: {
+          remainingSeats: tracking.seatsLeft,
+          totalSeats: tracking.totalSeats,
+          percentage: Math.round((tracking.passengersOnboard / Math.max(1, tracking.totalSeats)) * 100),
+          isFull: tracking.seatsLeft <= 0,
+        },
+        qrVerification: { enabled: true },
+      };
+      return { success: true, dashboard, data: dashboard, source: 'rwanda-demo-fallback' };
+    }
+
+    const response = await api.get(`/trips/${tripId}/driver-dashboard`);
+    return response.data;
   },
 };
 

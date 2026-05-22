@@ -38,8 +38,17 @@ const configuredOrigins = [
   ...splitOrigins(process.env.FRONTEND_URL),
   ...splitOrigins(process.env.CORS_ORIGINS)
 ];
+const localDevOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174'
+];
 const allowedOrigins = [...new Set([
   ...configuredOrigins,
+  ...(!isProductionRuntime() ? localDevOrigins : []),
   ...(isProductionRuntime() ? ['https://rindaseat.vercel.app', 'https://rinda-seat.vercel.app'] : [])
 ])];
 const maxRequestBodySize = Number(process.env.MAX_FILE_UPLOAD_SIZE) || 1024 * 1024;
